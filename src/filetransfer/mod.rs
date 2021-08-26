@@ -44,7 +44,7 @@ pub use params::FileTransferParams;
 ///
 /// This enum defines the different transfer protocol available in termscp
 
-#[derive(PartialEq, std::fmt::Debug, std::clone::Clone, Copy)]
+#[derive(PartialEq, Debug, std::clone::Clone, Copy)]
 pub enum FileTransferProtocol {
     Sftp,
     Scp,
@@ -54,7 +54,7 @@ pub enum FileTransferProtocol {
 /// ## FileTransferError
 ///
 /// FileTransferError defines the possible errors available for a file transfer
-#[derive(std::fmt::Debug)]
+#[derive(Debug)]
 pub struct FileTransferError {
     code: FileTransferErrorType,
     msg: Option<String>,
@@ -84,6 +84,8 @@ pub enum FileTransferErrorType {
     SslError,
     #[error("Could not stat directory")]
     DirStatFailed,
+    #[error("Directory already exists")]
+    DirectoryAlreadyExists,
     #[error("Failed to create file")]
     FileCreateDenied,
     #[error("No such file or directory")]
@@ -180,7 +182,7 @@ pub trait FileTransfer {
     /// ### mkdir
     ///
     /// Make directory
-    /// You must return error in case the directory already exists
+    /// In case the directory already exists, it must return an Error of kind `FileTransferErrorType::DirectoryAlreadyExists`
     fn mkdir(&mut self, dir: &Path) -> Result<(), FileTransferError>;
 
     /// ### remove

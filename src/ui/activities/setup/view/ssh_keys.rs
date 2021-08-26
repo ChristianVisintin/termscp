@@ -31,10 +31,9 @@ use super::{Context, SetupActivity};
 use crate::ui::components::bookmark_list::{BookmarkList, BookmarkListPropsBuilder};
 use crate::utils::ui::draw_area_in;
 // Ext
-use tuirealm::components::{
+use tui_realm_stdlib::{
     input::{Input, InputPropsBuilder},
     radio::{Radio, RadioPropsBuilder},
-    span::{Span, SpanPropsBuilder},
 };
 use tuirealm::tui::{
     layout::{Constraint, Direction, Layout},
@@ -42,7 +41,7 @@ use tuirealm::tui::{
     widgets::{BorderType, Borders, Clear},
 };
 use tuirealm::{
-    props::{PropsBuilder, TextSpanBuilder},
+    props::{Alignment, PropsBuilder},
     View,
 };
 
@@ -57,46 +56,15 @@ impl SetupActivity {
         self.view = View::init();
         // Common stuff
         // Radio tab
-        self.view.mount(
-            super::COMPONENT_RADIO_TAB,
-            Box::new(Radio::new(
-                RadioPropsBuilder::default()
-                    .with_color(Color::LightYellow)
-                    .with_inverted_color(Color::Black)
-                    .with_borders(Borders::BOTTOM, BorderType::Thick, Color::LightYellow)
-                    .with_options(
-                        None,
-                        vec![
-                            String::from("User Interface"),
-                            String::from("SSH Keys"),
-                            String::from("Theme"),
-                        ],
-                    )
-                    .with_value(1)
-                    .build(),
-            )),
-        );
+        // Radio tab
+        self.mount_header_tab(1);
         // Footer
-        self.view.mount(
-            super::COMPONENT_TEXT_FOOTER,
-            Box::new(Span::new(
-                SpanPropsBuilder::default()
-                    .with_spans(vec![
-                        TextSpanBuilder::new("Press ").bold().build(),
-                        TextSpanBuilder::new("<CTRL+H>")
-                            .bold()
-                            .with_foreground(Color::Cyan)
-                            .build(),
-                        TextSpanBuilder::new(" to show keybindings").bold().build(),
-                    ])
-                    .build(),
-            )),
-        );
+        self.mount_footer();
         self.view.mount(
             super::COMPONENT_LIST_SSH_KEYS,
             Box::new(BookmarkList::new(
                 BookmarkListPropsBuilder::default()
-                    .with_bookmarks(Some(String::from("SSH Keys")), vec![])
+                    .with_title("SSH keys", Alignment::Left)
                     .with_borders(Borders::ALL, BorderType::Plain, Color::LightGreen)
                     .with_background(Color::LightGreen)
                     .with_foreground(Color::Black)
@@ -211,11 +179,10 @@ impl SetupActivity {
                     .with_color(Color::LightRed)
                     .with_inverted_color(Color::Black)
                     .with_borders(Borders::ALL, BorderType::Rounded, Color::LightRed)
-                    .with_options(
-                        Some(String::from("Delete key?")),
-                        vec![String::from("Yes"), String::from("No")],
-                    )
+                    .with_title("Delete key?", Alignment::Center)
+                    .with_options(&[String::from("Yes"), String::from("No")])
                     .with_value(1) // Default: No
+                    .rewind(true)
                     .build(),
             )),
         );
@@ -238,7 +205,7 @@ impl SetupActivity {
             super::COMPONENT_INPUT_SSH_HOST,
             Box::new(Input::new(
                 InputPropsBuilder::default()
-                    .with_label(String::from("Hostname or address"))
+                    .with_label("Hostname or address", Alignment::Center)
                     .with_borders(
                         Borders::TOP | Borders::RIGHT | Borders::LEFT,
                         BorderType::Plain,
@@ -251,7 +218,7 @@ impl SetupActivity {
             super::COMPONENT_INPUT_SSH_USERNAME,
             Box::new(Input::new(
                 InputPropsBuilder::default()
-                    .with_label(String::from("Username"))
+                    .with_label("Username", Alignment::Center)
                     .with_borders(
                         Borders::BOTTOM | Borders::RIGHT | Borders::LEFT,
                         BorderType::Plain,
@@ -287,7 +254,7 @@ impl SetupActivity {
                 })
                 .collect();
             let props = BookmarkListPropsBuilder::from(props)
-                .with_bookmarks(Some(String::from("SSH Keys")), keys)
+                .with_bookmarks(keys)
                 .build();
             self.view.update(super::COMPONENT_LIST_SSH_KEYS, props);
         }

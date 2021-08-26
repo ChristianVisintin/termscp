@@ -76,7 +76,7 @@ impl ConfigClient {
             if let Err(err) = create_dir(ssh_key_dir) {
                 error!("Failed to create SSH key dir: {}", err);
                 return Err(SerializerError::new_ex(
-                    SerializerErrorKind::IoError,
+                    SerializerErrorKind::Io,
                     format!(
                         "Could not create SSH key directory \"{}\": {}",
                         ssh_key_dir.display(),
@@ -252,7 +252,7 @@ impl ConfigClient {
     ) -> Result<(), SerializerError> {
         if self.degraded {
             return Err(SerializerError::new_ex(
-                SerializerErrorKind::GenericError,
+                SerializerErrorKind::Generic,
                 String::from("Configuration won't be saved, since in degraded mode"),
             ));
         }
@@ -291,7 +291,7 @@ impl ConfigClient {
     pub fn del_ssh_key(&mut self, host: &str, username: &str) -> Result<(), SerializerError> {
         if self.degraded {
             return Err(SerializerError::new_ex(
-                SerializerErrorKind::GenericError,
+                SerializerErrorKind::Generic,
                 String::from("Configuration won't be saved, since in degraded mode"),
             ));
         }
@@ -351,7 +351,7 @@ impl ConfigClient {
     pub fn write_config(&self) -> Result<(), SerializerError> {
         if self.degraded {
             return Err(SerializerError::new_ex(
-                SerializerErrorKind::GenericError,
+                SerializerErrorKind::Generic,
                 String::from("Configuration won't be saved, since in degraded mode"),
             ));
         }
@@ -366,7 +366,7 @@ impl ConfigClient {
             Err(err) => {
                 error!("Failed to write configuration file: {}", err);
                 Err(SerializerError::new_ex(
-                    SerializerErrorKind::IoError,
+                    SerializerErrorKind::Io,
                     err.to_string(),
                 ))
             }
@@ -379,7 +379,7 @@ impl ConfigClient {
     pub fn read_config(&mut self) -> Result<(), SerializerError> {
         if self.degraded {
             return Err(SerializerError::new_ex(
-                SerializerErrorKind::GenericError,
+                SerializerErrorKind::Generic,
                 String::from("Configuration won't be loaded, since in degraded mode"),
             ));
         }
@@ -401,7 +401,7 @@ impl ConfigClient {
             Err(err) => {
                 error!("Failed to read configuration: {}", err);
                 Err(SerializerError::new_ex(
-                    SerializerErrorKind::IoError,
+                    SerializerErrorKind::Io,
                     err.to_string(),
                 ))
             }
@@ -432,7 +432,7 @@ impl ConfigClient {
     /// Make serializer error from `std::io::Error`
     fn make_io_err(err: std::io::Error) -> Result<(), SerializerError> {
         Err(SerializerError::new_ex(
-            SerializerErrorKind::IoError,
+            SerializerErrorKind::Io,
             err.to_string(),
         ))
     }

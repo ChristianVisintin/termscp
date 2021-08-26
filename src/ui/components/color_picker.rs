@@ -30,15 +30,15 @@
 use crate::utils::fmt::fmt_color;
 use crate::utils::parser::parse_color;
 // ext
-use tuirealm::components::input::{Input, InputPropsBuilder};
+use tui_realm_stdlib::input::{Input, InputPropsBuilder};
 use tuirealm::event::Event;
-use tuirealm::props::{Props, PropsBuilder};
+use tuirealm::props::{Alignment, Props, PropsBuilder};
 use tuirealm::tui::{
     layout::Rect,
     style::Color,
     widgets::{BorderType, Borders},
 };
-use tuirealm::{Canvas, Component, Msg, Payload, Value};
+use tuirealm::{Component, Frame, Msg, Payload, Value};
 
 // -- props
 
@@ -98,8 +98,8 @@ impl ColorPickerPropsBuilder {
     /// ### with_label
     ///
     /// Set input label
-    pub fn with_label(&mut self, label: String) -> &mut Self {
-        self.puppet.with_label(label);
+    pub fn with_label<S: AsRef<str>>(&mut self, label: S, alignment: Alignment) -> &mut Self {
+        self.puppet.with_label(label, alignment);
         self
     }
 
@@ -149,7 +149,7 @@ impl Component for ColorPicker {
     /// Based on the current properties and states, renders a widget using the provided render engine in the provided Area
     /// If focused, cursor is also set (if supported by widget)
     #[cfg(not(tarpaulin_include))]
-    fn render(&self, render: &mut Canvas, area: Rect) {
+    fn render(&self, render: &mut Frame, area: Rect) {
         self.input.render(render, area);
     }
 
@@ -260,6 +260,7 @@ mod test {
                 .visible()
                 .with_color(&Color::Rgb(204, 170, 0))
                 .with_borders(Borders::ALL, BorderType::Double, Color::Rgb(204, 170, 0))
+                .with_label("omar", Alignment::Left)
                 .build(),
         );
         // Focus

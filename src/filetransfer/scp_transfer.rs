@@ -27,7 +27,7 @@
  */
 // Locals
 use super::{FileTransfer, FileTransferError, FileTransferErrorType};
-use crate::fs::{FsDirectory, FsEntry, FsFile};
+use crate::fs::{FsDirectory, FsEntry, FsFile, UnixPex};
 use crate::system::sshkey_storage::SshKeyStorage;
 use crate::utils::fmt::{fmt_time, shadow_password};
 use crate::utils::parser::parse_lstime;
@@ -74,6 +74,21 @@ impl ScpFileTransfer {
     #[cfg(target_family = "unix")]
     fn resolve(p: &Path) -> PathBuf {
         p.to_path_buf()
+    }
+
+    /// ### absolutize
+    ///
+    /// Absolutize target path if relative.
+    /// This also converts backslashes to slashes if relative
+    fn absolutize(wrkdir: &Path, target: &Path) -> PathBuf {
+        match target.is_absolute() {
+            true => target.to_path_buf(),
+            false => {
+                let mut p: PathBuf = wrkdir.to_path_buf();
+                p.push(target);
+                Self::resolve(p.as_path())
+            }
+        }
     }
 
     /// ### parse_ls_output
@@ -128,7 +143,11 @@ impl ScpFileTransfer {
                 };
 
                 // Get unix pex
-                let unix_pex = (pex(0..3), pex(3..6), pex(6..9));
+                let unix_pex = (
+                    UnixPex::from(pex(0..3)),
+                    UnixPex::from(pex(3..6)),
+                    UnixPex::from(pex(6..9)),
+                );
 
                 // Parse mtime and convert to SystemTime
                 let mtime: SystemTime = match parse_lstime(
@@ -169,7 +188,7 @@ impl ScpFileTransfer {
                 // Get symlink; PATH mustn't be equal to filename
                 let symlink: Option<Box<FsEntry>> = match symlink_path {
                     None => None,
-                    Some(p) => match p.file_name().unwrap_or(&std::ffi::OsStr::new(""))
+                    Some(p) => match p.file_name().unwrap_or_else(|| std::ffi::OsStr::new(""))
                         == file_name.as_str()
                     {
                         // If name is equal, don't stat path; otherwise it would get stuck
@@ -218,7 +237,6 @@ impl ScpFileTransfer {
                         last_change_time: mtime,
                         last_access_time: mtime,
                         creation_time: mtime,
-                        readonly: false,
                         symlink,
                         user: uid,
                         group: gid,
@@ -232,7 +250,6 @@ impl ScpFileTransfer {
                         creation_time: mtime,
                         size: filesize,
                         ftype: extension,
-                        readonly: false,
                         symlink,
                         user: uid,
                         group: gid,
@@ -339,7 +356,7 @@ impl FileTransfer for ScpFileTransfer {
         // Try addresses
         for socket_addr in socket_addresses.iter() {
             debug!("Trying socket address {}", socket_addr);
-            match TcpStream::connect_timeout(&socket_addr, Duration::from_secs(30)) {
+            match TcpStream::connect_timeout(socket_addr, Duration::from_secs(30)) {
                 Ok(stream) => {
                     debug!("{} succeded", socket_addr);
                     tcp = Some(stream);
@@ -504,14 +521,7 @@ impl FileTransfer for ScpFileTransfer {
         match self.is_connected() {
             true => {
                 let p: PathBuf = self.wrkdir.clone();
-                let remote_path: PathBuf = match dir.is_absolute() {
-                    true => PathBuf::from(dir),
-                    false => {
-                        let mut p: PathBuf = PathBuf::from(".");
-                        p.push(dir);
-                        Self::resolve(p.as_path())
-                    }
-                };
+                let remote_path: PathBuf = Self::absolutize(Path::new("."), dir);
                 info!("Changing working directory to {}", remote_path.display());
                 // Change directory
                 match self.perform_shell_cmd_with_path(
@@ -643,13 +653,22 @@ impl FileTransfer for ScpFileTransfer {
     /// ### mkdir
     ///
     /// Make directory
-    /// You must return error in case the directory already exists
+    /// In case the directory already exists, it must return an Error of kind `FileTransferErrorType::DirectoryAlreadyExists`
     fn mkdir(&mut self, dir: &Path) -> Result<(), FileTransferError> {
         match self.is_connected() {
             true => {
                 let dir: PathBuf = Self::resolve(dir);
                 info!("Making directory {}", dir.display());
                 let p: PathBuf = self.wrkdir.clone();
+                // If directory already exists, return Err
+                let mut dir_stat_path: PathBuf = dir.clone();
+                dir_stat_path.push("./");
+                if self.stat(dir_stat_path.as_path()).is_ok() {
+                    error!("Directory {} already exists", dir.display());
+                    return Err(FileTransferError::new(
+                        FileTransferErrorType::DirectoryAlreadyExists,
+                    ));
+                }
                 // Mkdir dir && echo 0
                 match self.perform_shell_cmd_with_path(
                     p.as_path(),
@@ -763,14 +782,7 @@ impl FileTransfer for ScpFileTransfer {
     ///
     /// Stat file and return FsEntry
     fn stat(&mut self, path: &Path) -> Result<FsEntry, FileTransferError> {
-        let path: PathBuf = match path.is_absolute() {
-            true => PathBuf::from(path),
-            false => {
-                let mut p: PathBuf = self.wrkdir.clone();
-                p.push(path);
-                Self::resolve(p.as_path())
-            }
-        };
+        let path: PathBuf = Self::absolutize(self.wrkdir.as_path(), path);
         match self.is_connected() {
             true => {
                 let p: PathBuf = self.wrkdir.clone();
@@ -846,15 +858,7 @@ impl FileTransfer for ScpFileTransfer {
     ) -> Result<Box<dyn Write>, FileTransferError> {
         match self.session.as_ref() {
             Some(session) => {
-                let file_name: PathBuf = match file_name.is_absolute() {
-                    true => PathBuf::from(file_name),
-                    false => {
-                        let mut p: PathBuf = self.wrkdir.clone();
-                        p.push(file_name);
-                        Self::resolve(p.as_path())
-                    }
-                };
-                let file_name: PathBuf = Self::resolve(file_name.as_path());
+                let file_name: PathBuf = Self::absolutize(self.wrkdir.as_path(), file_name);
                 info!(
                     "Sending file {} to {}",
                     local.abs_path.display(),
@@ -866,7 +870,11 @@ impl FileTransfer for ScpFileTransfer {
                 // Calculate file mode
                 let mode: i32 = match local.unix_pex {
                     None => 0o644,
-                    Some((u, g, o)) => ((u as i32) << 6) + ((g as i32) << 3) + (o as i32),
+                    Some((u, g, o)) => {
+                        ((u.as_byte() as i32) << 6)
+                            + ((g.as_byte() as i32) << 3)
+                            + (o.as_byte() as i32)
+                    }
                 };
                 // Calculate mtime, atime
                 let times: (u64, u64) = {
@@ -1019,6 +1027,15 @@ mod tests {
         assert!(client.list_dir(&Path::new("/config")).unwrap().len() >= 4);
         // Make directory
         assert!(client.mkdir(PathBuf::from("/tmp/omar").as_path()).is_ok());
+        // Remake directory (should report already exists)
+        assert_eq!(
+            client
+                .mkdir(PathBuf::from("/tmp/omar").as_path())
+                .err()
+                .unwrap()
+                .kind(),
+            FileTransferErrorType::DirectoryAlreadyExists
+        );
         // Make directory (err)
         assert!(client
             .mkdir(PathBuf::from("/root/aaaaa/pommlar").as_path())
@@ -1107,11 +1124,10 @@ mod tests {
             creation_time: SystemTime::UNIX_EPOCH,
             size: 0,
             ftype: Some(String::from("txt")), // File type
-            readonly: true,
-            symlink: None,             // UNIX only
-            user: Some(0),             // UNIX only
-            group: Some(0),            // UNIX only
-            unix_pex: Some((6, 4, 4)), // UNIX only
+            symlink: None,                    // UNIX only
+            user: Some(0),                    // UNIX only
+            group: Some(0),                   // UNIX only
+            unix_pex: Some((UnixPex::from(6), UnixPex::from(4), UnixPex::from(4))), // UNIX only
         });
         assert!(client
             .rename(&dummy, PathBuf::from("/a/b/c").as_path())
@@ -1224,9 +1240,11 @@ mod tests {
             .unwrap_file();
         assert_eq!(entry.name.as_str(), "Cargo.toml");
         assert_eq!(entry.abs_path, PathBuf::from("/tmp/Cargo.toml"));
-        assert_eq!(entry.unix_pex.unwrap(), (6, 4, 4));
+        assert_eq!(
+            entry.unix_pex.unwrap(),
+            (UnixPex::from(6), UnixPex::from(4), UnixPex::from(4))
+        );
         assert_eq!(entry.size, 2056);
-        assert_eq!(entry.readonly, false);
         assert_eq!(entry.ftype.unwrap().as_str(), "toml");
         assert!(entry.symlink.is_none());
         // File (year)
@@ -1240,9 +1258,11 @@ mod tests {
             .unwrap_file();
         assert_eq!(entry.name.as_str(), "CODE_OF_CONDUCT.md");
         assert_eq!(entry.abs_path, PathBuf::from("/tmp/CODE_OF_CONDUCT.md"));
-        assert_eq!(entry.unix_pex.unwrap(), (6, 6, 6));
+        assert_eq!(
+            entry.unix_pex.unwrap(),
+            (UnixPex::from(6), UnixPex::from(6), UnixPex::from(6))
+        );
         assert_eq!(entry.size, 3368);
-        assert_eq!(entry.readonly, false);
         assert_eq!(entry.ftype.unwrap().as_str(), "md");
         assert!(entry.symlink.is_none());
         // Directory
@@ -1256,8 +1276,10 @@ mod tests {
             .unwrap_dir();
         assert_eq!(entry.name.as_str(), "docs");
         assert_eq!(entry.abs_path, PathBuf::from("/tmp/docs"));
-        assert_eq!(entry.unix_pex.unwrap(), (7, 5, 5));
-        assert_eq!(entry.readonly, false);
+        assert_eq!(
+            entry.unix_pex.unwrap(),
+            (UnixPex::from(7), UnixPex::from(5), UnixPex::from(5))
+        );
         assert!(entry.symlink.is_none());
         // Short metadata
         assert!(client
@@ -1305,11 +1327,10 @@ mod tests {
             creation_time: SystemTime::UNIX_EPOCH,
             size: 0,
             ftype: Some(String::from("txt")), // File type
-            readonly: true,
-            symlink: None,             // UNIX only
-            user: Some(0),             // UNIX only
-            group: Some(0),            // UNIX only
-            unix_pex: Some((6, 4, 4)), // UNIX only
+            symlink: None,                    // UNIX only
+            user: Some(0),                    // UNIX only
+            group: Some(0),                   // UNIX only
+            unix_pex: Some((UnixPex::from(6), UnixPex::from(4), UnixPex::from(4))), // UNIX only
         };
         let mut scp: ScpFileTransfer = ScpFileTransfer::new(SshKeyStorage::empty());
         assert!(scp.change_dir(Path::new("/tmp")).is_err());

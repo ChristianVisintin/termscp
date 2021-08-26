@@ -33,10 +33,9 @@ use crate::fs::explorer::GroupDirs;
 use crate::utils::ui::draw_area_in;
 // Ext
 use std::path::PathBuf;
-use tuirealm::components::{
+use tui_realm_stdlib::{
     input::{Input, InputPropsBuilder},
     radio::{Radio, RadioPropsBuilder},
-    span::{Span, SpanPropsBuilder},
 };
 use tuirealm::tui::{
     layout::{Constraint, Direction, Layout},
@@ -44,7 +43,7 @@ use tuirealm::tui::{
     widgets::{BorderType, Borders, Clear},
 };
 use tuirealm::{
-    props::{PropsBuilder, TextSpanBuilder},
+    props::{Alignment, PropsBuilder},
     Payload, Value, View,
 };
 
@@ -59,41 +58,9 @@ impl SetupActivity {
         self.view = View::init();
         // Common stuff
         // Radio tab
-        self.view.mount(
-            super::COMPONENT_RADIO_TAB,
-            Box::new(Radio::new(
-                RadioPropsBuilder::default()
-                    .with_color(Color::LightYellow)
-                    .with_inverted_color(Color::Black)
-                    .with_borders(Borders::BOTTOM, BorderType::Thick, Color::White)
-                    .with_options(
-                        None,
-                        vec![
-                            String::from("User Interface"),
-                            String::from("SSH Keys"),
-                            String::from("Theme"),
-                        ],
-                    )
-                    .with_value(0)
-                    .build(),
-            )),
-        );
+        self.mount_header_tab(0);
         // Footer
-        self.view.mount(
-            super::COMPONENT_TEXT_FOOTER,
-            Box::new(Span::new(
-                SpanPropsBuilder::default()
-                    .with_spans(vec![
-                        TextSpanBuilder::new("Press ").bold().build(),
-                        TextSpanBuilder::new("<CTRL+H>")
-                            .bold()
-                            .with_foreground(Color::Cyan)
-                            .build(),
-                        TextSpanBuilder::new(" to show keybindings").bold().build(),
-                    ])
-                    .build(),
-            )),
-        );
+        self.mount_footer();
         // Input fields
         self.view.mount(
             super::COMPONENT_INPUT_TEXT_EDITOR,
@@ -101,7 +68,7 @@ impl SetupActivity {
                 InputPropsBuilder::default()
                     .with_foreground(Color::LightGreen)
                     .with_borders(Borders::ALL, BorderType::Rounded, Color::LightGreen)
-                    .with_label(String::from("Text editor"))
+                    .with_label("Text editor", Alignment::Left)
                     .build(),
             )),
         );
@@ -113,15 +80,14 @@ impl SetupActivity {
                     .with_color(Color::LightCyan)
                     .with_inverted_color(Color::Black)
                     .with_borders(Borders::ALL, BorderType::Rounded, Color::LightCyan)
-                    .with_options(
-                        Some(String::from("Default file transfer protocol")),
-                        vec![
-                            String::from("SFTP"),
-                            String::from("SCP"),
-                            String::from("FTP"),
-                            String::from("FTPS"),
-                        ],
-                    )
+                    .with_title("Default file transfer protocol", Alignment::Left)
+                    .with_options(&[
+                        String::from("SFTP"),
+                        String::from("SCP"),
+                        String::from("FTP"),
+                        String::from("FTPS"),
+                    ])
+                    .rewind(true)
                     .build(),
             )),
         );
@@ -132,10 +98,9 @@ impl SetupActivity {
                     .with_color(Color::LightRed)
                     .with_inverted_color(Color::Black)
                     .with_borders(Borders::ALL, BorderType::Rounded, Color::LightRed)
-                    .with_options(
-                        Some(String::from("Show hidden files (by default)")),
-                        vec![String::from("Yes"), String::from("No")],
-                    )
+                    .with_title("Show hidden files (by default)?", Alignment::Left)
+                    .with_options(&[String::from("Yes"), String::from("No")])
+                    .rewind(true)
                     .build(),
             )),
         );
@@ -146,10 +111,9 @@ impl SetupActivity {
                     .with_color(Color::LightYellow)
                     .with_inverted_color(Color::Black)
                     .with_borders(Borders::ALL, BorderType::Rounded, Color::LightYellow)
-                    .with_options(
-                        Some(String::from("Check for updates?")),
-                        vec![String::from("Yes"), String::from("No")],
-                    )
+                    .with_title("Check for updates?", Alignment::Left)
+                    .with_options(&[String::from("Yes"), String::from("No")])
+                    .rewind(true)
                     .build(),
             )),
         );
@@ -160,14 +124,13 @@ impl SetupActivity {
                     .with_color(Color::LightMagenta)
                     .with_inverted_color(Color::Black)
                     .with_borders(Borders::ALL, BorderType::Rounded, Color::LightMagenta)
-                    .with_options(
-                        Some(String::from("Group directories")),
-                        vec![
-                            String::from("Display first"),
-                            String::from("Display Last"),
-                            String::from("No"),
-                        ],
-                    )
+                    .with_title("Group directories", Alignment::Left)
+                    .with_options(&[
+                        String::from("Display first"),
+                        String::from("Display Last"),
+                        String::from("No"),
+                    ])
+                    .rewind(true)
                     .build(),
             )),
         );
@@ -177,7 +140,7 @@ impl SetupActivity {
                 InputPropsBuilder::default()
                     .with_foreground(Color::LightBlue)
                     .with_borders(Borders::ALL, BorderType::Rounded, Color::LightBlue)
-                    .with_label(String::from("File formatter syntax (local)"))
+                    .with_label("File formatter syntax (local)", Alignment::Left)
                     .build(),
             )),
         );
@@ -187,7 +150,7 @@ impl SetupActivity {
                 InputPropsBuilder::default()
                     .with_foreground(Color::LightGreen)
                     .with_borders(Borders::ALL, BorderType::Rounded, Color::LightGreen)
-                    .with_label(String::from("File formatter syntax (remote)"))
+                    .with_label("File formatter syntax (remote)", Alignment::Left)
                     .build(),
             )),
         );

@@ -44,13 +44,13 @@ pub struct SerializerError {
 #[derive(Error, Debug)]
 pub enum SerializerErrorKind {
     #[error("Operation failed")]
-    GenericError,
+    Generic,
     #[error("IO error")]
-    IoError,
+    Io,
     #[error("Serialization error")]
-    SerializationError,
+    Serialization,
     #[error("Syntax error")]
-    SyntaxError,
+    Syntax,
 }
 
 impl SerializerError {
@@ -92,7 +92,7 @@ where
         Ok(dt) => dt,
         Err(err) => {
             return Err(SerializerError::new_ex(
-                SerializerErrorKind::SerializationError,
+                SerializerErrorKind::Serialization,
                 err.to_string(),
             ))
         }
@@ -102,7 +102,7 @@ where
     match writable.write_all(data.as_bytes()) {
         Ok(_) => Ok(()),
         Err(err) => Err(SerializerError::new_ex(
-            SerializerErrorKind::IoError,
+            SerializerErrorKind::Io,
             err.to_string(),
         )),
     }
@@ -119,7 +119,7 @@ where
     let mut data: String = String::new();
     if let Err(err) = readable.read_to_string(&mut data) {
         return Err(SerializerError::new_ex(
-            SerializerErrorKind::IoError,
+            SerializerErrorKind::Io,
             err.to_string(),
         ));
     }
@@ -131,7 +131,7 @@ where
             Ok(deserialized)
         }
         Err(err) => Err(SerializerError::new_ex(
-            SerializerErrorKind::SyntaxError,
+            SerializerErrorKind::Syntax,
             err.to_string(),
         )),
     }
@@ -154,11 +154,11 @@ mod tests {
 
     #[test]
     fn test_config_serialization_errors() {
-        let error: SerializerError = SerializerError::new(SerializerErrorKind::SyntaxError);
+        let error: SerializerError = SerializerError::new(SerializerErrorKind::Syntax);
         assert!(error.msg.is_none());
         assert_eq!(format!("{}", error), String::from("Syntax error"));
         let error: SerializerError =
-            SerializerError::new_ex(SerializerErrorKind::SyntaxError, String::from("bad syntax"));
+            SerializerError::new_ex(SerializerErrorKind::Syntax, String::from("bad syntax"));
         assert!(error.msg.is_some());
         assert_eq!(
             format!("{}", error),
@@ -166,20 +166,17 @@ mod tests {
         );
         // Fmt
         assert_eq!(
-            format!(
-                "{}",
-                SerializerError::new(SerializerErrorKind::GenericError)
-            ),
+            format!("{}", SerializerError::new(SerializerErrorKind::Generic)),
             String::from("Operation failed")
         );
         assert_eq!(
-            format!("{}", SerializerError::new(SerializerErrorKind::IoError)),
+            format!("{}", SerializerError::new(SerializerErrorKind::Io)),
             String::from("IO error")
         );
         assert_eq!(
             format!(
                 "{}",
-                SerializerError::new(SerializerErrorKind::SerializationError)
+                SerializerError::new(SerializerErrorKind::Serialization)
             ),
             String::from("Serialization error")
         );

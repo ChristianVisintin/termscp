@@ -38,7 +38,6 @@ extern crate content_inspector;
 extern crate crossterm;
 extern crate dirs;
 extern crate edit;
-extern crate ftp4;
 extern crate hostname;
 #[cfg(feature = "with-keyring")]
 extern crate keyring;
@@ -54,8 +53,10 @@ extern crate path_slash;
 extern crate rand;
 extern crate regex;
 extern crate ssh2;
+extern crate suppaftp;
 extern crate tempfile;
 extern crate textwrap;
+extern crate tui_realm_stdlib;
 extern crate tuirealm;
 extern crate ureq;
 #[cfg(target_family = "unix")]

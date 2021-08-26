@@ -74,65 +74,67 @@ impl SetupActivity {
             None => None,
             Some(msg) => match msg {
                 // Input field <DOWN>
-                (COMPONENT_INPUT_TEXT_EDITOR, &MSG_KEY_DOWN) => {
+                (COMPONENT_INPUT_TEXT_EDITOR, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_RADIO_DEFAULT_PROTOCOL);
                     None
                 }
-                (COMPONENT_RADIO_DEFAULT_PROTOCOL, &MSG_KEY_DOWN) => {
+                (COMPONENT_RADIO_DEFAULT_PROTOCOL, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_RADIO_HIDDEN_FILES);
                     None
                 }
-                (COMPONENT_RADIO_HIDDEN_FILES, &MSG_KEY_DOWN) => {
+                (COMPONENT_RADIO_HIDDEN_FILES, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_RADIO_UPDATES);
                     None
                 }
-                (COMPONENT_RADIO_UPDATES, &MSG_KEY_DOWN) => {
+                (COMPONENT_RADIO_UPDATES, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_RADIO_GROUP_DIRS);
                     None
                 }
-                (COMPONENT_RADIO_GROUP_DIRS, &MSG_KEY_DOWN) => {
+                (COMPONENT_RADIO_GROUP_DIRS, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_INPUT_LOCAL_FILE_FMT);
                     None
                 }
-                (COMPONENT_INPUT_LOCAL_FILE_FMT, &MSG_KEY_DOWN) => {
+                (COMPONENT_INPUT_LOCAL_FILE_FMT, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_INPUT_REMOTE_FILE_FMT);
                     None
                 }
-                (COMPONENT_INPUT_REMOTE_FILE_FMT, &MSG_KEY_DOWN) => {
+                (COMPONENT_INPUT_REMOTE_FILE_FMT, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_INPUT_TEXT_EDITOR);
                     None
                 }
                 // Input field <UP>
-                (COMPONENT_INPUT_REMOTE_FILE_FMT, &MSG_KEY_UP) => {
+                (COMPONENT_INPUT_REMOTE_FILE_FMT, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_INPUT_LOCAL_FILE_FMT);
                     None
                 }
-                (COMPONENT_INPUT_LOCAL_FILE_FMT, &MSG_KEY_UP) => {
+                (COMPONENT_INPUT_LOCAL_FILE_FMT, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_RADIO_GROUP_DIRS);
                     None
                 }
-                (COMPONENT_RADIO_GROUP_DIRS, &MSG_KEY_UP) => {
+                (COMPONENT_RADIO_GROUP_DIRS, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_RADIO_UPDATES);
                     None
                 }
-                (COMPONENT_RADIO_UPDATES, &MSG_KEY_UP) => {
+                (COMPONENT_RADIO_UPDATES, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_RADIO_HIDDEN_FILES);
                     None
                 }
-                (COMPONENT_RADIO_HIDDEN_FILES, &MSG_KEY_UP) => {
+                (COMPONENT_RADIO_HIDDEN_FILES, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_RADIO_DEFAULT_PROTOCOL);
                     None
                 }
-                (COMPONENT_RADIO_DEFAULT_PROTOCOL, &MSG_KEY_UP) => {
+                (COMPONENT_RADIO_DEFAULT_PROTOCOL, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_INPUT_TEXT_EDITOR);
                     None
                 }
-                (COMPONENT_INPUT_TEXT_EDITOR, &MSG_KEY_UP) => {
+                (COMPONENT_INPUT_TEXT_EDITOR, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_INPUT_REMOTE_FILE_FMT);
                     None
                 }
                 // Error <ENTER> or <ESC>
-                (COMPONENT_TEXT_ERROR, &MSG_KEY_ENTER) | (COMPONENT_TEXT_ERROR, &MSG_KEY_ESC) => {
+                (COMPONENT_TEXT_ERROR, key) | (COMPONENT_TEXT_ERROR, key)
+                    if key == &MSG_KEY_ESC || key == &MSG_KEY_ENTER =>
+                {
                     // Umount text error
                     self.umount_error();
                     None
@@ -161,7 +163,9 @@ impl SetupActivity {
                 }
                 (COMPONENT_RADIO_QUIT, _) => None,
                 // Close help
-                (COMPONENT_TEXT_HELP, &MSG_KEY_ENTER) | (COMPONENT_TEXT_HELP, &MSG_KEY_ESC) => {
+                (COMPONENT_TEXT_HELP, key) | (COMPONENT_TEXT_HELP, key)
+                    if key == &MSG_KEY_ESC || key == &MSG_KEY_ENTER =>
+                {
                     // Umount help
                     self.umount_help();
                     None
@@ -189,12 +193,12 @@ impl SetupActivity {
                     None
                 }
                 // <CTRL+H> Show help
-                (_, &MSG_KEY_CTRL_H) => {
+                (_, key) if key == &MSG_KEY_CTRL_H => {
                     // Show help
                     self.mount_help();
                     None
                 }
-                (_, &MSG_KEY_TAB) => {
+                (_, key) if key == &MSG_KEY_TAB => {
                     // Change view
                     if let Err(err) = self.action_change_tab(ViewLayout::SshKeys) {
                         self.mount_error(err.as_str());
@@ -202,7 +206,7 @@ impl SetupActivity {
                     None
                 }
                 // <CTRL+R> Revert changes
-                (_, &MSG_KEY_CTRL_R) => {
+                (_, key) if key == &MSG_KEY_CTRL_R => {
                     // Revert changes
                     if let Err(err) = self.action_reset_config() {
                         self.mount_error(err.as_str());
@@ -210,13 +214,13 @@ impl SetupActivity {
                     None
                 }
                 // <CTRL+S> Save
-                (_, &MSG_KEY_CTRL_S) => {
+                (_, key) if key == &MSG_KEY_CTRL_S => {
                     // Show save
                     self.mount_save_popup();
                     None
                 }
                 // <ESC>
-                (_, &MSG_KEY_ESC) => {
+                (_, key) if key == &MSG_KEY_ESC => {
                     self.action_on_esc();
                     None
                 }
@@ -232,7 +236,9 @@ impl SetupActivity {
             None => None,
             Some(msg) => match msg {
                 // Error <ENTER> or <ESC>
-                (COMPONENT_TEXT_ERROR, &MSG_KEY_ENTER) | (COMPONENT_TEXT_ERROR, &MSG_KEY_ESC) => {
+                (COMPONENT_TEXT_ERROR, key) | (COMPONENT_TEXT_ERROR, key)
+                    if key == &MSG_KEY_ESC || key == &MSG_KEY_ENTER =>
+                {
                     // Umount text error
                     self.umount_error();
                     None
@@ -261,7 +267,9 @@ impl SetupActivity {
                 }
                 (COMPONENT_RADIO_QUIT, _) => None,
                 // Close help
-                (COMPONENT_TEXT_HELP, &MSG_KEY_ENTER) | (COMPONENT_TEXT_HELP, &MSG_KEY_ESC) => {
+                (COMPONENT_TEXT_HELP, key) | (COMPONENT_TEXT_HELP, key)
+                    if key == &MSG_KEY_ESC || key == &MSG_KEY_ENTER =>
+                {
                     // Umount help
                     self.umount_help();
                     None
@@ -300,28 +308,30 @@ impl SetupActivity {
                 (COMPONENT_RADIO_SAVE, _) => None,
                 // Edit SSH Key
                 // <CTRL+H> Show help
-                (_, &MSG_KEY_CTRL_H) => {
+                (_, key) if key == &MSG_KEY_CTRL_H => {
                     // Show help
                     self.mount_help();
                     None
                 }
                 // New key <DOWN>
-                (COMPONENT_INPUT_SSH_HOST, &MSG_KEY_DOWN) => {
+                (COMPONENT_INPUT_SSH_HOST, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_INPUT_SSH_USERNAME);
                     None
                 }
-                (COMPONENT_INPUT_SSH_USERNAME, &MSG_KEY_DOWN) => {
+                (COMPONENT_INPUT_SSH_USERNAME, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_INPUT_SSH_HOST);
                     None
                 }
                 // New key <UP>
-                (COMPONENT_INPUT_SSH_USERNAME, &MSG_KEY_UP)
-                | (COMPONENT_INPUT_SSH_USERNAME, &MSG_KEY_TAB) => {
+                (COMPONENT_INPUT_SSH_USERNAME, key) | (COMPONENT_INPUT_SSH_USERNAME, key)
+                    if key == &MSG_KEY_UP || key == &MSG_KEY_TAB =>
+                {
                     self.view.active(COMPONENT_INPUT_SSH_HOST);
                     None
                 }
-                (COMPONENT_INPUT_SSH_HOST, &MSG_KEY_UP)
-                | (COMPONENT_INPUT_SSH_HOST, &MSG_KEY_TAB) => {
+                (COMPONENT_INPUT_SSH_HOST, key) | (COMPONENT_INPUT_SSH_HOST, key)
+                    if key == &MSG_KEY_UP || key == &MSG_KEY_TAB =>
+                {
                     self.view.active(COMPONENT_INPUT_SSH_USERNAME);
                     None
                 }
@@ -335,14 +345,15 @@ impl SetupActivity {
                     None
                 }
                 // New key <ESC>
-                (COMPONENT_INPUT_SSH_HOST, &MSG_KEY_ESC)
-                | (COMPONENT_INPUT_SSH_USERNAME, &MSG_KEY_ESC) => {
+                (COMPONENT_INPUT_SSH_HOST, key) | (COMPONENT_INPUT_SSH_USERNAME, key)
+                    if key == &MSG_KEY_ESC =>
+                {
                     // Umount new ssh key
                     self.umount_new_ssh_key();
                     None
                 }
                 // <CTRL+N> New key
-                (COMPONENT_LIST_SSH_KEYS, &MSG_KEY_CTRL_N) => {
+                (COMPONENT_LIST_SSH_KEYS, key) if key == &MSG_KEY_CTRL_N => {
                     // Show new key popup
                     self.mount_new_ssh_key();
                     None
@@ -356,13 +367,14 @@ impl SetupActivity {
                     None
                 }
                 // <DEL | CTRL+E> Show delete
-                (COMPONENT_LIST_SSH_KEYS, &MSG_KEY_CTRL_E)
-                | (COMPONENT_LIST_SSH_KEYS, &MSG_KEY_DEL) => {
+                (COMPONENT_LIST_SSH_KEYS, key) | (COMPONENT_LIST_SSH_KEYS, key)
+                    if key == &MSG_KEY_CTRL_E || key == &MSG_KEY_DEL =>
+                {
                     // Show delete key
                     self.mount_del_ssh_key();
                     None
                 }
-                (_, &MSG_KEY_TAB) => {
+                (_, key) if key == &MSG_KEY_TAB => {
                     // Change view
                     if let Err(err) = self.action_change_tab(ViewLayout::Theme) {
                         self.mount_error(err.as_str());
@@ -370,7 +382,7 @@ impl SetupActivity {
                     None
                 }
                 // <CTRL+R> Revert changes
-                (_, &MSG_KEY_CTRL_R) => {
+                (_, key) if key == &MSG_KEY_CTRL_R => {
                     // Revert changes
                     if let Err(err) = self.action_reset_config() {
                         self.mount_error(err.as_str());
@@ -378,13 +390,13 @@ impl SetupActivity {
                     None
                 }
                 // <CTRL+S> Save
-                (_, &MSG_KEY_CTRL_S) => {
+                (_, key) if key == &MSG_KEY_CTRL_S => {
                     // Show save
                     self.mount_save_popup();
                     None
                 }
                 // <ESC>
-                (_, &MSG_KEY_ESC) => {
+                (_, key) if key == &MSG_KEY_ESC => {
                     self.action_on_esc();
                     None
                 }
@@ -400,217 +412,217 @@ impl SetupActivity {
             None => None,
             Some(msg) => match msg {
                 // Input fields
-                (COMPONENT_COLOR_AUTH_PROTOCOL, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_AUTH_PROTOCOL, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_AUTH_ADDR);
                     None
                 }
-                (COMPONENT_COLOR_AUTH_ADDR, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_AUTH_ADDR, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_AUTH_PORT);
                     None
                 }
-                (COMPONENT_COLOR_AUTH_PORT, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_AUTH_PORT, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_AUTH_USERNAME);
                     None
                 }
-                (COMPONENT_COLOR_AUTH_USERNAME, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_AUTH_USERNAME, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_AUTH_PASSWORD);
                     None
                 }
-                (COMPONENT_COLOR_AUTH_PASSWORD, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_AUTH_PASSWORD, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_AUTH_BOOKMARKS);
                     None
                 }
-                (COMPONENT_COLOR_AUTH_BOOKMARKS, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_AUTH_BOOKMARKS, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_AUTH_RECENTS);
                     None
                 }
-                (COMPONENT_COLOR_AUTH_RECENTS, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_AUTH_RECENTS, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_MISC_ERROR);
                     None
                 }
-                (COMPONENT_COLOR_MISC_ERROR, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_MISC_ERROR, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_MISC_INPUT);
                     None
                 }
-                (COMPONENT_COLOR_MISC_INPUT, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_MISC_INPUT, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_MISC_KEYS);
                     None
                 }
-                (COMPONENT_COLOR_MISC_KEYS, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_MISC_KEYS, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_MISC_QUIT);
                     None
                 }
-                (COMPONENT_COLOR_MISC_QUIT, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_MISC_QUIT, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_MISC_SAVE);
                     None
                 }
-                (COMPONENT_COLOR_MISC_SAVE, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_MISC_SAVE, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_MISC_WARN);
                     None
                 }
-                (COMPONENT_COLOR_MISC_WARN, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_MISC_WARN, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_TRANSFER_EXPLORER_LOCAL_BG);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_EXPLORER_LOCAL_BG, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_TRANSFER_EXPLORER_LOCAL_BG, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_TRANSFER_EXPLORER_LOCAL_FG);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_EXPLORER_LOCAL_FG, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_TRANSFER_EXPLORER_LOCAL_FG, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_TRANSFER_EXPLORER_LOCAL_HG);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_EXPLORER_LOCAL_HG, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_TRANSFER_EXPLORER_LOCAL_HG, key) if key == &MSG_KEY_DOWN => {
                     self.view
                         .active(COMPONENT_COLOR_TRANSFER_EXPLORER_REMOTE_BG);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_EXPLORER_REMOTE_BG, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_TRANSFER_EXPLORER_REMOTE_BG, key) if key == &MSG_KEY_DOWN => {
                     self.view
                         .active(COMPONENT_COLOR_TRANSFER_EXPLORER_REMOTE_FG);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_EXPLORER_REMOTE_FG, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_TRANSFER_EXPLORER_REMOTE_FG, key) if key == &MSG_KEY_DOWN => {
                     self.view
                         .active(COMPONENT_COLOR_TRANSFER_EXPLORER_REMOTE_HG);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_EXPLORER_REMOTE_HG, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_TRANSFER_EXPLORER_REMOTE_HG, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_TRANSFER_PROG_BAR_FULL);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_PROG_BAR_FULL, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_TRANSFER_PROG_BAR_FULL, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_TRANSFER_PROG_BAR_PARTIAL);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_PROG_BAR_PARTIAL, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_TRANSFER_PROG_BAR_PARTIAL, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_TRANSFER_LOG_BG);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_LOG_BG, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_TRANSFER_LOG_BG, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_TRANSFER_LOG_WIN);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_LOG_WIN, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_TRANSFER_LOG_WIN, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_TRANSFER_STATUS_SORTING);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_STATUS_SORTING, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_TRANSFER_STATUS_SORTING, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_TRANSFER_STATUS_HIDDEN);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_STATUS_HIDDEN, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_TRANSFER_STATUS_HIDDEN, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_TRANSFER_STATUS_SYNC);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_STATUS_SYNC, &MSG_KEY_DOWN) => {
+                (COMPONENT_COLOR_TRANSFER_STATUS_SYNC, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_COLOR_AUTH_PROTOCOL);
                     None
                 }
-                (COMPONENT_COLOR_AUTH_PROTOCOL, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_AUTH_PROTOCOL, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_TRANSFER_STATUS_SYNC);
                     None
                 }
-                (COMPONENT_COLOR_AUTH_ADDR, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_AUTH_ADDR, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_AUTH_PROTOCOL);
                     None
                 }
-                (COMPONENT_COLOR_AUTH_PORT, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_AUTH_PORT, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_AUTH_ADDR);
                     None
                 }
-                (COMPONENT_COLOR_AUTH_USERNAME, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_AUTH_USERNAME, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_AUTH_PORT);
                     None
                 }
-                (COMPONENT_COLOR_AUTH_PASSWORD, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_AUTH_PASSWORD, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_AUTH_USERNAME);
                     None
                 }
-                (COMPONENT_COLOR_AUTH_BOOKMARKS, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_AUTH_BOOKMARKS, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_AUTH_PASSWORD);
                     None
                 }
-                (COMPONENT_COLOR_AUTH_RECENTS, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_AUTH_RECENTS, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_AUTH_BOOKMARKS);
                     None
                 }
-                (COMPONENT_COLOR_MISC_ERROR, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_MISC_ERROR, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_AUTH_RECENTS);
                     None
                 }
-                (COMPONENT_COLOR_MISC_INPUT, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_MISC_INPUT, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_MISC_ERROR);
                     None
                 }
-                (COMPONENT_COLOR_MISC_KEYS, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_MISC_KEYS, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_MISC_INPUT);
                     None
                 }
-                (COMPONENT_COLOR_MISC_QUIT, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_MISC_QUIT, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_MISC_KEYS);
                     None
                 }
-                (COMPONENT_COLOR_MISC_SAVE, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_MISC_SAVE, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_MISC_QUIT);
                     None
                 }
-                (COMPONENT_COLOR_MISC_WARN, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_MISC_WARN, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_MISC_SAVE);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_EXPLORER_LOCAL_BG, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_TRANSFER_EXPLORER_LOCAL_BG, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_MISC_WARN);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_EXPLORER_LOCAL_FG, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_TRANSFER_EXPLORER_LOCAL_FG, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_TRANSFER_EXPLORER_LOCAL_BG);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_EXPLORER_LOCAL_HG, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_TRANSFER_EXPLORER_LOCAL_HG, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_TRANSFER_EXPLORER_LOCAL_FG);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_EXPLORER_REMOTE_BG, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_TRANSFER_EXPLORER_REMOTE_BG, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_TRANSFER_EXPLORER_LOCAL_HG);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_EXPLORER_REMOTE_FG, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_TRANSFER_EXPLORER_REMOTE_FG, key) if key == &MSG_KEY_UP => {
                     self.view
                         .active(COMPONENT_COLOR_TRANSFER_EXPLORER_REMOTE_BG);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_EXPLORER_REMOTE_HG, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_TRANSFER_EXPLORER_REMOTE_HG, key) if key == &MSG_KEY_UP => {
                     self.view
                         .active(COMPONENT_COLOR_TRANSFER_EXPLORER_REMOTE_FG);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_PROG_BAR_FULL, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_TRANSFER_PROG_BAR_FULL, key) if key == &MSG_KEY_UP => {
                     self.view
                         .active(COMPONENT_COLOR_TRANSFER_EXPLORER_REMOTE_HG);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_PROG_BAR_PARTIAL, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_TRANSFER_PROG_BAR_PARTIAL, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_TRANSFER_PROG_BAR_FULL);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_LOG_BG, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_TRANSFER_LOG_BG, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_TRANSFER_PROG_BAR_PARTIAL);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_LOG_WIN, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_TRANSFER_LOG_WIN, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_TRANSFER_LOG_BG);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_STATUS_SORTING, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_TRANSFER_STATUS_SORTING, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_TRANSFER_LOG_WIN);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_STATUS_HIDDEN, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_TRANSFER_STATUS_HIDDEN, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_TRANSFER_STATUS_SORTING);
                     None
                 }
-                (COMPONENT_COLOR_TRANSFER_STATUS_SYNC, &MSG_KEY_UP) => {
+                (COMPONENT_COLOR_TRANSFER_STATUS_SYNC, key) if key == &MSG_KEY_UP => {
                     self.view.active(COMPONENT_COLOR_TRANSFER_STATUS_HIDDEN);
                     None
                 }
@@ -624,7 +636,9 @@ impl SetupActivity {
                     None
                 }
                 // Error <ENTER> or <ESC>
-                (COMPONENT_TEXT_ERROR, &MSG_KEY_ENTER) | (COMPONENT_TEXT_ERROR, &MSG_KEY_ESC) => {
+                (COMPONENT_TEXT_ERROR, key) | (COMPONENT_TEXT_ERROR, key)
+                    if key == &MSG_KEY_ESC || key == &MSG_KEY_ENTER =>
+                {
                     // Umount text error
                     self.umount_error();
                     None
@@ -653,7 +667,9 @@ impl SetupActivity {
                 }
                 (COMPONENT_RADIO_QUIT, _) => None,
                 // Close help
-                (COMPONENT_TEXT_HELP, &MSG_KEY_ENTER) | (COMPONENT_TEXT_HELP, &MSG_KEY_ESC) => {
+                (COMPONENT_TEXT_HELP, key) | (COMPONENT_TEXT_HELP, key)
+                    if key == &MSG_KEY_ESC || key == &MSG_KEY_ENTER =>
+                {
                     // Umount help
                     self.umount_help();
                     None
@@ -676,12 +692,12 @@ impl SetupActivity {
                 (COMPONENT_RADIO_SAVE, _) => None,
                 // Edit SSH Key
                 // <CTRL+H> Show help
-                (_, &MSG_KEY_CTRL_H) => {
+                (_, key) if key == &MSG_KEY_CTRL_H => {
                     // Show help
                     self.mount_help();
                     None
                 }
-                (_, &MSG_KEY_TAB) => {
+                (_, key) if key == &MSG_KEY_TAB => {
                     // Change view
                     if let Err(err) = self.action_change_tab(ViewLayout::SetupForm) {
                         self.mount_error(err.as_str());
@@ -689,7 +705,7 @@ impl SetupActivity {
                     None
                 }
                 // <CTRL+R> Revert changes
-                (_, &MSG_KEY_CTRL_R) => {
+                (_, key) if key == &MSG_KEY_CTRL_R => {
                     // Revert changes
                     if let Err(err) = self.action_reset_theme() {
                         self.mount_error(err.as_str());
@@ -697,13 +713,13 @@ impl SetupActivity {
                     None
                 }
                 // <CTRL+S> Save
-                (_, &MSG_KEY_CTRL_S) => {
+                (_, key) if key == &MSG_KEY_CTRL_S => {
                     // Show save
                     self.mount_save_popup();
                     None
                 }
                 // <ESC>
-                (_, &MSG_KEY_ESC) => {
+                (_, key) if key == &MSG_KEY_ESC => {
                     self.action_on_esc();
                     None
                 }

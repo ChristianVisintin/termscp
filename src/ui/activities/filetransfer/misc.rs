@@ -25,6 +25,7 @@
 use super::{ConfigClient, FileTransferActivity, LogLevel, LogRecord};
 use crate::system::environment;
 use crate::system::sshkey_storage::SshKeyStorage;
+use crate::utils::path;
 // Ext
 use std::env;
 use std::path::{Path, PathBuf};
@@ -124,27 +125,13 @@ impl FileTransferActivity {
     ///
     /// Convert a path to absolute according to local explorer
     pub(super) fn local_to_abs_path(&self, path: &Path) -> PathBuf {
-        match path.is_relative() {
-            true => {
-                let mut d: PathBuf = self.local().wrkdir.clone();
-                d.push(path);
-                d
-            }
-            false => path.to_path_buf(),
-        }
+        path::absolutize(self.local().wrkdir.as_path(), path)
     }
 
     /// ### remote_to_abs_path
     ///
     /// Convert a path to absolute according to remote explorer
     pub(super) fn remote_to_abs_path(&self, path: &Path) -> PathBuf {
-        match path.is_relative() {
-            true => {
-                let mut wrkdir: PathBuf = self.remote().wrkdir.clone();
-                wrkdir.push(path);
-                wrkdir
-            }
-            false => path.to_path_buf(),
-        }
+        path::absolutize(self.remote().wrkdir.as_path(), path)
     }
 }

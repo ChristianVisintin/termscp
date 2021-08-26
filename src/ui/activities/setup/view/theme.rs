@@ -33,18 +33,14 @@ use crate::ui::components::color_picker::{ColorPicker, ColorPickerPropsBuilder};
 use crate::utils::parser::parse_color;
 use crate::utils::ui::draw_area_in;
 // Ext
-use tuirealm::components::{
-    label::{Label, LabelPropsBuilder},
-    radio::{Radio, RadioPropsBuilder},
-    span::{Span, SpanPropsBuilder},
-};
+use tui_realm_stdlib::label::{Label, LabelPropsBuilder};
 use tuirealm::tui::{
     layout::{Constraint, Direction, Layout},
     style::Color,
     widgets::{BorderType, Borders, Clear},
 };
 use tuirealm::{
-    props::{PropsBuilder, TextSpanBuilder},
+    props::{Alignment, PropsBuilder},
     Payload, Value, View,
 };
 
@@ -59,41 +55,9 @@ impl SetupActivity {
         self.view = View::init();
         // Common stuff
         // Radio tab
-        self.view.mount(
-            super::COMPONENT_RADIO_TAB,
-            Box::new(Radio::new(
-                RadioPropsBuilder::default()
-                    .with_color(Color::LightYellow)
-                    .with_inverted_color(Color::Black)
-                    .with_borders(Borders::BOTTOM, BorderType::Thick, Color::White)
-                    .with_options(
-                        None,
-                        vec![
-                            String::from("User Interface"),
-                            String::from("SSH Keys"),
-                            String::from("Theme"),
-                        ],
-                    )
-                    .with_value(2)
-                    .build(),
-            )),
-        );
+        self.mount_header_tab(2);
         // Footer
-        self.view.mount(
-            super::COMPONENT_TEXT_FOOTER,
-            Box::new(Span::new(
-                SpanPropsBuilder::default()
-                    .with_spans(vec![
-                        TextSpanBuilder::new("Press ").bold().build(),
-                        TextSpanBuilder::new("<CTRL+H>")
-                            .bold()
-                            .with_foreground(Color::Cyan)
-                            .build(),
-                        TextSpanBuilder::new(" to show keybindings").bold().build(),
-                    ])
-                    .build(),
-            )),
-        );
+        self.mount_footer();
         // auth colors
         self.mount_title(super::COMPONENT_COLOR_AUTH_TITLE, "Authentication styles");
         self.mount_color_picker(super::COMPONENT_COLOR_AUTH_PROTOCOL, "Protocol");
@@ -653,7 +617,7 @@ impl SetupActivity {
             Box::new(ColorPicker::new(
                 ColorPickerPropsBuilder::default()
                     .with_borders(Borders::ALL, BorderType::Rounded, Color::Reset)
-                    .with_label(label.to_string())
+                    .with_label(label.to_string(), Alignment::Left)
                     .build(),
             )),
         );

@@ -27,7 +27,7 @@
  */
 // Locals
 use super::{FileTransferActivity, LogLevel};
-use crate::filetransfer::FileTransferError;
+use crate::filetransfer::{FileTransferError, FileTransferErrorType};
 use crate::fs::{FsEntry, FsFile};
 use crate::host::HostError;
 use crate::utils::fmt::fmt_millis;
@@ -363,41 +363,22 @@ impl FileTransferActivity {
                 }
             }
             FsEntry::Directory(dir) => {
-                // Create directory on remote
+                // Create directory on remote first
                 match self.client.mkdir(remote_path.as_path()) {
                     Ok(_) => {
                         self.log(
                             LogLevel::Info,
                             format!("Created directory \"{}\"", remote_path.display()),
                         );
-                        // Get files in dir
-                        match self.host.scan_dir(dir.abs_path.as_path()) {
-                            Ok(entries) => {
-                                // Iterate over files
-                                for entry in entries.iter() {
-                                    // If aborted; break
-                                    if self.transfer.aborted() {
-                                        break;
-                                    }
-                                    // Send entry; name is always None after first call
-                                    self.filetransfer_send_recurse(
-                                        &entry,
-                                        remote_path.as_path(),
-                                        None,
-                                    );
-                                }
-                            }
-                            Err(err) => {
-                                self.log_and_alert(
-                                    LogLevel::Error,
-                                    format!(
-                                        "Could not scan directory \"{}\": {}",
-                                        dir.abs_path.display(),
-                                        err
-                                    ),
-                                );
-                            }
-                        }
+                    }
+                    Err(err) if err.kind() == FileTransferErrorType::DirectoryAlreadyExists => {
+                        self.log(
+                            LogLevel::Info,
+                            format!(
+                                "Directory \"{}\" already exists on remote",
+                                remote_path.display()
+                            ),
+                        );
                     }
                     Err(err) => {
                         self.log_and_alert(
@@ -405,6 +386,31 @@ impl FileTransferActivity {
                             format!(
                                 "Failed to create directory \"{}\": {}",
                                 remote_path.display(),
+                                err
+                            ),
+                        );
+                        return;
+                    }
+                }
+                // Get files in dir
+                match self.host.scan_dir(dir.abs_path.as_path()) {
+                    Ok(entries) => {
+                        // Iterate over files
+                        for entry in entries.iter() {
+                            // If aborted; break
+                            if self.transfer.aborted() {
+                                break;
+                            }
+                            // Send entry; name is always None after first call
+                            self.filetransfer_send_recurse(entry, remote_path.as_path(), None);
+                        }
+                    }
+                    Err(err) => {
+                        self.log_and_alert(
+                            LogLevel::Error,
+                            format!(
+                                "Could not scan directory \"{}\": {}",
+                                dir.abs_path.display(),
                                 err
                             ),
                         );
@@ -701,13 +707,16 @@ impl FileTransferActivity {
                             target_os = "macos",
                             target_os = "linux"
                         ))]
-                        if let Some(pex) = dir.unix_pex {
-                            if let Err(err) = self.host.chmod(local_dir_path.as_path(), pex) {
+                        if let Some((owner, group, others)) = dir.unix_pex {
+                            if let Err(err) = self.host.chmod(
+                                local_dir_path.as_path(),
+                                (owner.as_byte(), group.as_byte(), others.as_byte()),
+                            ) {
                                 self.log(
                                     LogLevel::Error,
                                     format!(
                                         "Could not apply file mode {:?} to \"{}\": {}",
-                                        pex,
+                                        (owner.as_byte(), group.as_byte(), others.as_byte()),
                                         local_dir_path.display(),
                                         err
                                     ),
@@ -730,7 +739,7 @@ impl FileTransferActivity {
                                     // Receive entry; name is always None after first call
                                     // Local path becomes local_dir_path
                                     self.filetransfer_recv_recurse(
-                                        &entry,
+                                        entry,
                                         local_dir_path.as_path(),
                                         None,
                                     );
@@ -868,13 +877,16 @@ impl FileTransferActivity {
                             target_os = "macos",
                             target_os = "linux"
                         ))]
-                        if let Some(pex) = remote.unix_pex {
-                            if let Err(err) = self.host.chmod(local, pex) {
+                        if let Some((owner, group, others)) = remote.unix_pex {
+                            if let Err(err) = self
+                                .host
+                                .chmod(local, (owner.as_byte(), group.as_byte(), others.as_byte()))
+                            {
                                 self.log(
                                     LogLevel::Error,
                                     format!(
                                         "Could not apply file mode {:?} to \"{}\": {}",
-                                        pex,
+                                        (owner.as_byte(), group.as_byte(), others.as_byte()),
                                         local.display(),
                                         err
                                     ),

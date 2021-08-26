@@ -188,7 +188,7 @@ impl ActivityManager {
         };
         // If ft params is None, return None
         let ft_params: &FileTransferParams = match ctx.ft_params() {
-            Some(ft_params) => &ft_params,
+            Some(ft_params) => ft_params,
             None => {
                 error!("Failed to start FileTransferActivity: file transfer params is None");
                 return None;

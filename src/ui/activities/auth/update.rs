@@ -35,7 +35,7 @@ use super::{
     COMPONENT_TEXT_HELP, COMPONENT_TEXT_NEW_VERSION_NOTES, COMPONENT_TEXT_SIZE_ERR,
 };
 use crate::ui::keymap::*;
-use tuirealm::components::InputPropsBuilder;
+use tui_realm_stdlib::InputPropsBuilder;
 use tuirealm::{Msg, Payload, PropsBuilder, Update, Value};
 
 // -- update
@@ -52,53 +52,53 @@ impl Update for AuthActivity {
             None => None, // Exit after None
             Some(msg) => match msg {
                 // Focus ( DOWN )
-                (COMPONENT_RADIO_PROTOCOL, &MSG_KEY_DOWN) => {
+                (COMPONENT_RADIO_PROTOCOL, key) if key == &MSG_KEY_DOWN => {
                     // Give focus to port
                     self.view.active(COMPONENT_INPUT_ADDR);
                     None
                 }
-                (COMPONENT_INPUT_ADDR, &MSG_KEY_DOWN) => {
+                (COMPONENT_INPUT_ADDR, key) if key == &MSG_KEY_DOWN => {
                     // Give focus to port
                     self.view.active(COMPONENT_INPUT_PORT);
                     None
                 }
-                (COMPONENT_INPUT_PORT, &MSG_KEY_DOWN) => {
+                (COMPONENT_INPUT_PORT, key) if key == &MSG_KEY_DOWN => {
                     // Give focus to port
                     self.view.active(COMPONENT_INPUT_USERNAME);
                     None
                 }
-                (COMPONENT_INPUT_USERNAME, &MSG_KEY_DOWN) => {
+                (COMPONENT_INPUT_USERNAME, key) if key == &MSG_KEY_DOWN => {
                     // Give focus to port
                     self.view.active(COMPONENT_INPUT_PASSWORD);
                     None
                 }
-                (COMPONENT_INPUT_PASSWORD, &MSG_KEY_DOWN) => {
+                (COMPONENT_INPUT_PASSWORD, key) if key == &MSG_KEY_DOWN => {
                     // Give focus to port
                     self.view.active(COMPONENT_RADIO_PROTOCOL);
                     None
                 }
                 // Focus ( UP )
-                (COMPONENT_INPUT_PASSWORD, &MSG_KEY_UP) => {
+                (COMPONENT_INPUT_PASSWORD, key) if key == &MSG_KEY_UP => {
                     // Give focus to port
                     self.view.active(COMPONENT_INPUT_USERNAME);
                     None
                 }
-                (COMPONENT_INPUT_USERNAME, &MSG_KEY_UP) => {
+                (COMPONENT_INPUT_USERNAME, key) if key == &MSG_KEY_UP => {
                     // Give focus to port
                     self.view.active(COMPONENT_INPUT_PORT);
                     None
                 }
-                (COMPONENT_INPUT_PORT, &MSG_KEY_UP) => {
+                (COMPONENT_INPUT_PORT, key) if key == &MSG_KEY_UP => {
                     // Give focus to port
                     self.view.active(COMPONENT_INPUT_ADDR);
                     None
                 }
-                (COMPONENT_INPUT_ADDR, &MSG_KEY_UP) => {
+                (COMPONENT_INPUT_ADDR, key) if key == &MSG_KEY_UP => {
                     // Give focus to port
                     self.view.active(COMPONENT_RADIO_PROTOCOL);
                     None
                 }
-                (COMPONENT_RADIO_PROTOCOL, &MSG_KEY_UP) => {
+                (COMPONENT_RADIO_PROTOCOL, key) if key == &MSG_KEY_UP => {
                     // Give focus to port
                     self.view.active(COMPONENT_INPUT_PASSWORD);
                     None
@@ -118,25 +118,25 @@ impl Update for AuthActivity {
                 }
                 // Bookmarks commands
                 // <RIGHT> / <LEFT>
-                (COMPONENT_BOOKMARKS_LIST, &MSG_KEY_RIGHT) => {
+                (COMPONENT_BOOKMARKS_LIST, key) if key == &MSG_KEY_RIGHT => {
                     // Give focus to recents
                     self.view.active(COMPONENT_RECENTS_LIST);
                     None
                 }
-                (COMPONENT_RECENTS_LIST, &MSG_KEY_LEFT) => {
+                (COMPONENT_RECENTS_LIST, key) if key == &MSG_KEY_LEFT => {
                     // Give focus to bookmarks
                     self.view.active(COMPONENT_BOOKMARKS_LIST);
                     None
                 }
                 // <DEL | 'E'>
-                (COMPONENT_BOOKMARKS_LIST, &MSG_KEY_DEL)
-                | (COMPONENT_BOOKMARKS_LIST, &MSG_KEY_CHAR_E) => {
+                (COMPONENT_BOOKMARKS_LIST, key)
+                    if key == &MSG_KEY_DEL || key == &MSG_KEY_CHAR_E =>
+                {
                     // Show delete popup
                     self.mount_bookmark_del_dialog();
                     None
                 }
-                (COMPONENT_RECENTS_LIST, &MSG_KEY_DEL)
-                | (COMPONENT_RECENTS_LIST, &MSG_KEY_CHAR_E) => {
+                (COMPONENT_RECENTS_LIST, key) if key == &MSG_KEY_DEL || key == &MSG_KEY_CHAR_E => {
                     // Show delete popup
                     self.mount_recent_del_dialog();
                     None
@@ -203,67 +203,68 @@ impl Update for AuthActivity {
                     }
                 }
                 // <ESC> hide tab
-                (COMPONENT_RADIO_BOOKMARK_DEL_RECENT, &MSG_KEY_ESC) => {
+                (COMPONENT_RADIO_BOOKMARK_DEL_RECENT, key) if key == &MSG_KEY_ESC => {
                     self.umount_recent_del_dialog();
                     None
                 }
                 (COMPONENT_RADIO_BOOKMARK_DEL_RECENT, _) => None,
-                (COMPONENT_RADIO_BOOKMARK_DEL_BOOKMARK, &MSG_KEY_ESC) => {
+                (COMPONENT_RADIO_BOOKMARK_DEL_BOOKMARK, key) if key == &MSG_KEY_ESC => {
                     self.umount_bookmark_del_dialog();
                     None
                 }
                 (COMPONENT_RADIO_BOOKMARK_DEL_BOOKMARK, _) => None,
                 // Error message
-                (COMPONENT_TEXT_ERROR, &MSG_KEY_ENTER) | (COMPONENT_TEXT_ERROR, &MSG_KEY_ESC) => {
+                (COMPONENT_TEXT_ERROR, key) if key == &MSG_KEY_ESC || key == &MSG_KEY_ENTER => {
                     // Umount text error
                     self.umount_error();
                     None
                 }
                 (COMPONENT_TEXT_ERROR, _) => None,
-                (COMPONENT_TEXT_NEW_VERSION_NOTES, &MSG_KEY_ESC)
-                | (COMPONENT_TEXT_NEW_VERSION_NOTES, &MSG_KEY_ENTER) => {
+                (COMPONENT_TEXT_NEW_VERSION_NOTES, key)
+                    if key == &MSG_KEY_ESC || key == &MSG_KEY_ENTER =>
+                {
                     // Umount release notes
                     self.umount_release_notes();
                     None
                 }
                 (COMPONENT_TEXT_NEW_VERSION_NOTES, _) => None,
                 // Help
-                (_, &MSG_KEY_CTRL_H) => {
+                (_, key) if key == &MSG_KEY_CTRL_H => {
                     // Show help
                     self.mount_help();
                     None
                 }
                 // Release notes
-                (_, &MSG_KEY_CTRL_R) => {
+                (_, key) if key == &MSG_KEY_CTRL_R => {
                     // Show release notes
                     self.mount_release_notes();
                     None
                 }
-                (COMPONENT_TEXT_HELP, &MSG_KEY_ENTER) | (COMPONENT_TEXT_HELP, &MSG_KEY_ESC) => {
+                (COMPONENT_TEXT_HELP, key) if key == &MSG_KEY_ESC || key == &MSG_KEY_ENTER => {
                     // Hide text help
                     self.umount_help();
                     None
                 }
                 (COMPONENT_TEXT_HELP, _) => None,
                 // Enter setup
-                (_, &MSG_KEY_CTRL_C) => {
+                (_, key) if key == &MSG_KEY_CTRL_C => {
                     self.exit_reason = Some(super::ExitReason::EnterSetup);
                     None
                 }
                 // Save bookmark; show popup
-                (_, &MSG_KEY_CTRL_S) => {
+                (_, key) if key == &MSG_KEY_CTRL_S => {
                     // Show popup
                     self.mount_bookmark_save_dialog();
                     // Give focus to bookmark name
                     self.view.active(COMPONENT_INPUT_BOOKMARK_NAME);
                     None
                 }
-                (COMPONENT_INPUT_BOOKMARK_NAME, &MSG_KEY_DOWN) => {
+                (COMPONENT_INPUT_BOOKMARK_NAME, key) if key == &MSG_KEY_DOWN => {
                     // Give focus to pwd
                     self.view.active(COMPONENT_RADIO_BOOKMARK_SAVE_PWD);
                     None
                 }
-                (COMPONENT_RADIO_BOOKMARK_SAVE_PWD, &MSG_KEY_UP) => {
+                (COMPONENT_RADIO_BOOKMARK_SAVE_PWD, key) if key == &MSG_KEY_UP => {
                     // Give focus to pwd
                     self.view.active(COMPONENT_INPUT_BOOKMARK_NAME);
                     None
@@ -291,8 +292,9 @@ impl Update for AuthActivity {
                     self.view_bookmarks()
                 }
                 // Hide save bookmark
-                (COMPONENT_INPUT_BOOKMARK_NAME, &MSG_KEY_ESC)
-                | (COMPONENT_RADIO_BOOKMARK_SAVE_PWD, &MSG_KEY_ESC) => {
+                (COMPONENT_INPUT_BOOKMARK_NAME, key) | (COMPONENT_RADIO_BOOKMARK_SAVE_PWD, key)
+                    if key == &MSG_KEY_ESC =>
+                {
                     // Umount popup
                     self.umount_bookmark_save_dialog();
                     None
@@ -307,45 +309,30 @@ impl Update for AuthActivity {
                     self.umount_quit();
                     None
                 }
-                (COMPONENT_RADIO_QUIT, &MSG_KEY_ESC) => {
+                (COMPONENT_RADIO_QUIT, key) if key == &MSG_KEY_ESC => {
                     self.umount_quit();
                     None
                 }
                 // -- text size error; block everything
                 (COMPONENT_TEXT_SIZE_ERR, _) => None,
                 // <TAB> bookmarks
-                (COMPONENT_BOOKMARKS_LIST, &MSG_KEY_TAB)
-                | (COMPONENT_RECENTS_LIST, &MSG_KEY_TAB) => {
+                (COMPONENT_BOOKMARKS_LIST, key) | (COMPONENT_RECENTS_LIST, key)
+                    if key == &MSG_KEY_TAB =>
+                {
                     // Give focus to address
                     self.view.active(COMPONENT_INPUT_ADDR);
                     None
                 }
                 // Any <TAB>, go to bookmarks
-                (_, &MSG_KEY_TAB) => {
+                (_, key) if key == &MSG_KEY_TAB => {
                     self.view.active(COMPONENT_BOOKMARKS_LIST);
                     None
                 }
                 // On submit on any unhandled (connect)
-                (_, Msg::OnSubmit(_)) | (_, &MSG_KEY_ENTER) => {
-                    // Validate fields
-                    match self.collect_host_params() {
-                        Err(err) => {
-                            // mount error
-                            self.mount_error(err);
-                        }
-                        Ok(params) => {
-                            self.save_recent();
-                            // Set file transfer params to context
-                            self.context_mut().set_ftparams(params);
-                            // Set exit reason
-                            self.exit_reason = Some(super::ExitReason::Connect);
-                        }
-                    }
-                    // Return None
-                    None
-                }
+                (_, Msg::OnSubmit(_)) => self.on_unhandled_submit(),
+                (_, key) if key == &MSG_KEY_ENTER => self.on_unhandled_submit(),
                 // <ESC> => Quit
-                (_, &MSG_KEY_ESC) => {
+                (_, key) if key == &MSG_KEY_ESC => {
                     self.mount_quit();
                     None
                 }
@@ -366,5 +353,24 @@ impl AuthActivity {
                 self.view.update(COMPONENT_INPUT_PORT, props)
             }
         }
+    }
+
+    fn on_unhandled_submit(&mut self) -> Option<(String, Msg)> {
+        // Validate fields
+        match self.collect_host_params() {
+            Err(err) => {
+                // mount error
+                self.mount_error(err);
+            }
+            Ok(params) => {
+                self.save_recent();
+                // Set file transfer params to context
+                self.context_mut().set_ftparams(params);
+                // Set exit reason
+                self.exit_reason = Some(super::ExitReason::Connect);
+            }
+        }
+        // Return None
+        None
     }
 }

@@ -26,17 +26,21 @@
  * SOFTWARE.
  */
 // ext
-use tuirealm::components::utils::{get_block, wrap_spans};
+use tui_realm_stdlib::utils::{get_block, wrap_spans};
 use tuirealm::event::{Event, KeyCode};
-use tuirealm::props::{BordersProps, Props, PropsBuilder, Table as TextTable, TextParts};
+use tuirealm::props::{
+    Alignment, BlockTitle, BordersProps, Props, PropsBuilder, Table as TextTable,
+};
 use tuirealm::tui::{
     layout::{Corner, Rect},
     style::{Color, Style},
     widgets::{BorderType, Borders, List, ListItem, ListState},
 };
-use tuirealm::{Canvas, Component, Msg, Payload, Value};
+use tuirealm::{Component, Frame, Msg, Payload, PropPayload, PropValue, Value};
 
 // -- props
+
+const PROP_TABLE: &str = "table";
 
 pub struct LogboxPropsBuilder {
     props: Option<Props>,
@@ -106,9 +110,18 @@ impl LogboxPropsBuilder {
         self
     }
 
-    pub fn with_log(&mut self, title: Option<String>, table: TextTable) -> &mut Self {
+    pub fn with_title<S: AsRef<str>>(&mut self, text: S, alignment: Alignment) -> &mut Self {
         if let Some(props) = self.props.as_mut() {
-            props.texts = TextParts::table(title, table);
+            props.title = Some(BlockTitle::new(text, alignment));
+        }
+        self
+    }
+
+    pub fn with_log(&mut self, table: TextTable) -> &mut Self {
+        if let Some(props) = self.props.as_mut() {
+            props
+                .own
+                .insert(PROP_TABLE, PropPayload::One(PropValue::Table(table)));
         }
         self
     }
@@ -198,33 +211,37 @@ impl LogBox {
         // Initialize states
         let mut states: OwnStates = OwnStates::default();
         // Set list length
-        states.set_list_len(match &props.texts.table {
-            Some(rows) => rows.len(),
-            None => 0,
-        });
+        states.set_list_len(Self::table_len(&props));
         // Reset list index
         states.reset_list_index();
         LogBox { props, states }
+    }
+
+    fn table_len(props: &Props) -> usize {
+        match props.own.get(PROP_TABLE) {
+            Some(PropPayload::One(PropValue::Table(table))) => table.len(),
+            _ => 0,
+        }
     }
 }
 
 impl Component for LogBox {
     #[cfg(not(tarpaulin_include))]
-    fn render(&self, render: &mut Canvas, area: Rect) {
+    fn render(&self, render: &mut Frame, area: Rect) {
         if self.props.visible {
             let width: usize = area.width as usize - 4;
             // Make list
-            let list_items: Vec<ListItem> = match self.props.texts.table.as_ref() {
-                None => Vec::new(),
-                Some(table) => table
+            let list_items: Vec<ListItem> = match self.props.own.get(PROP_TABLE) {
+                Some(PropPayload::One(PropValue::Table(table))) => table
                     .iter()
                     .map(|row| ListItem::new(wrap_spans(row, width, &self.props)))
                     .collect(), // Make List item from TextSpan
+                _ => Vec::new(),
             };
             let w = List::new(list_items)
                 .block(get_block(
                     &self.props.borders,
-                    &self.props.texts.title,
+                    self.props.title.as_ref(),
                     self.states.focus,
                 ))
                 .start_corner(Corner::BottomLeft)
@@ -240,10 +257,7 @@ impl Component for LogBox {
     fn update(&mut self, props: Props) -> Msg {
         self.props = props;
         // re-Set list length
-        self.states.set_list_len(match &self.props.texts.table {
-            Some(rows) => rows.len(),
-            None => 0,
-        });
+        self.states.set_list_len(Self::table_len(&self.props));
         // Reset list index
         self.states.reset_list_index();
         Msg::None
@@ -323,8 +337,8 @@ mod tests {
                 .visible()
                 .with_borders(Borders::ALL, BorderType::Double, Color::Red)
                 .with_background(Color::Blue)
+                .with_title("Log", Alignment::Left)
                 .with_log(
-                    Some(String::from("Log")),
                     TableBuilder::default()
                         .add_col(TextSpan::from("12:29"))
                         .add_col(TextSpan::from("system crashed"))
@@ -337,11 +351,7 @@ mod tests {
         );
         assert_eq!(component.props.visible, true);
         assert_eq!(component.props.background, Color::Blue);
-        assert_eq!(
-            component.props.texts.title.as_ref().unwrap().as_str(),
-            "Log"
-        );
-        assert_eq!(component.props.texts.table.as_ref().unwrap().len(), 2);
+        assert_eq!(component.props.title.as_ref().unwrap().text(), "Log");
         // Verify states
         assert_eq!(component.states.list_index, 0);
         assert_eq!(component.states.list_len, 2);
@@ -364,7 +374,6 @@ mod tests {
         component.update(
             LogboxPropsBuilder::from(component.get_props())
                 .with_log(
-                    Some(String::from("Log")),
                     TableBuilder::default()
                         .add_col(TextSpan::from("12:29"))
                         .add_col(TextSpan::from("system crashed"))

@@ -1,5 +1,5 @@
 name: "termscp"
-version: 0.5.1
+version: 0.6.1
 origin: veeso/termscp
 comment: "A feature rich terminal UI file transfer and explorer with support for SCP/SFTP/FTP"
 desc: <<EOD

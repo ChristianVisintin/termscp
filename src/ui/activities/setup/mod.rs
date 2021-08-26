@@ -152,7 +152,7 @@ impl SetupActivity {
     }
 
     fn config(&self) -> &ConfigClient {
-        &self.context().config()
+        self.context().config()
     }
 
     fn config_mut(&mut self) -> &mut ConfigClient {

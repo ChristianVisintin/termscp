@@ -32,7 +32,6 @@ use crate::fs::FsEntry;
 use crate::ui::components::{
     file_list::{FileList, FileListPropsBuilder},
     logbox::{LogBox, LogboxPropsBuilder},
-    msgbox::{MsgBox, MsgBoxPropsBuilder},
 };
 use crate::ui::store::Store;
 use crate::utils::fmt::fmt_time;
@@ -40,15 +39,16 @@ use crate::utils::ui::draw_area_in;
 // Ext
 use bytesize::ByteSize;
 use std::path::PathBuf;
-use tuirealm::components::{
+use tui_realm_stdlib::{
     input::{Input, InputPropsBuilder},
+    list::{List, ListPropsBuilder},
+    paragraph::{Paragraph, ParagraphPropsBuilder},
     progress_bar::{ProgressBar, ProgressBarPropsBuilder},
     radio::{Radio, RadioPropsBuilder},
-    scrolltable::{ScrollTablePropsBuilder, Scrolltable},
     span::{Span, SpanPropsBuilder},
     table::{Table, TablePropsBuilder},
 };
-use tuirealm::props::{PropsBuilder, TableBuilder, TextSpan, TextSpanBuilder};
+use tuirealm::props::{Alignment, PropsBuilder, TableBuilder, TextSpan};
 use tuirealm::tui::{
     layout::{Constraint, Direction, Layout},
     style::Color,
@@ -101,6 +101,7 @@ impl FileTransferActivity {
             super::COMPONENT_LOG_BOX,
             Box::new(LogBox::new(
                 LogboxPropsBuilder::default()
+                    .with_title("Log", Alignment::Left)
                     .with_background(log_background)
                     .with_borders(Borders::ALL, BorderType::Plain, log_panel)
                     .build(),
@@ -383,12 +384,13 @@ impl FileTransferActivity {
         let error_color = self.theme().misc_error_dialog;
         self.view.mount(
             super::COMPONENT_TEXT_ERROR,
-            Box::new(MsgBox::new(
-                MsgBoxPropsBuilder::default()
+            Box::new(Paragraph::new(
+                ParagraphPropsBuilder::default()
                     .with_foreground(error_color)
                     .with_borders(Borders::ALL, BorderType::Rounded, error_color)
                     .bold()
-                    .with_texts(None, vec![TextSpan::from(text)])
+                    .with_text_alignment(Alignment::Center)
+                    .with_texts(vec![TextSpan::from(text)])
                     .build(),
             )),
         );
@@ -408,12 +410,13 @@ impl FileTransferActivity {
         let error_color = self.theme().misc_error_dialog;
         self.view.mount(
             super::COMPONENT_TEXT_FATAL,
-            Box::new(MsgBox::new(
-                MsgBoxPropsBuilder::default()
+            Box::new(Paragraph::new(
+                ParagraphPropsBuilder::default()
                     .with_foreground(error_color)
                     .with_borders(Borders::ALL, BorderType::Rounded, error_color)
                     .bold()
-                    .with_texts(None, vec![TextSpan::from(text)])
+                    .with_text_alignment(Alignment::Center)
+                    .with_texts(vec![TextSpan::from(text)])
                     .build(),
             )),
         );
@@ -422,28 +425,26 @@ impl FileTransferActivity {
     }
 
     pub(super) fn mount_wait(&mut self, text: &str) {
-        self.mount_wait_ex(text, false, Color::Reset);
+        self.mount_wait_ex(text, Color::Reset);
     }
 
     pub(super) fn mount_blocking_wait(&mut self, text: &str) {
-        self.mount_wait_ex(text, true, Color::Reset);
+        self.mount_wait_ex(text, Color::Reset);
         self.view();
     }
 
-    fn mount_wait_ex(&mut self, text: &str, blink: bool, color: Color) {
+    fn mount_wait_ex(&mut self, text: &str, color: Color) {
         // Mount
-        let mut builder: MsgBoxPropsBuilder = MsgBoxPropsBuilder::default();
+        let mut builder: ParagraphPropsBuilder = ParagraphPropsBuilder::default();
         builder
             .with_foreground(color)
             .with_borders(Borders::ALL, BorderType::Rounded, Color::White)
             .bold()
-            .with_texts(None, vec![TextSpan::from(text)]);
-        if blink {
-            builder.blink();
-        }
+            .with_text_alignment(Alignment::Center)
+            .with_texts(vec![TextSpan::from(text)]);
         self.view.mount(
             super::COMPONENT_TEXT_WAIT,
-            Box::new(MsgBox::new(builder.build())),
+            Box::new(Paragraph::new(builder.build())),
         );
         // Give focus to info
         self.view.active(super::COMPONENT_TEXT_WAIT);
@@ -466,10 +467,9 @@ impl FileTransferActivity {
                     .with_color(quit_color)
                     .with_inverted_color(Color::Black)
                     .with_borders(Borders::ALL, BorderType::Rounded, quit_color)
-                    .with_options(
-                        Some(String::from("Are you sure you want to quit?")),
-                        vec![String::from("Yes"), String::from("No")],
-                    )
+                    .with_title("Are you sure you want to quit?", Alignment::Center)
+                    .with_options(&[String::from("Yes"), String::from("No")])
+                    .rewind(true)
                     .build(),
             )),
         );
@@ -496,10 +496,9 @@ impl FileTransferActivity {
                     .with_color(quit_color)
                     .with_inverted_color(Color::Black)
                     .with_borders(Borders::ALL, BorderType::Rounded, quit_color)
-                    .with_options(
-                        Some(String::from("Are you sure you want to disconnect?")),
-                        vec![String::from("Yes"), String::from("No")],
-                    )
+                    .with_title("Are you sure you want to disconnect?", Alignment::Center)
+                    .with_options(&[String::from("Yes"), String::from("No")])
+                    .rewind(true)
                     .build(),
             )),
         );
@@ -521,7 +520,7 @@ impl FileTransferActivity {
                 InputPropsBuilder::default()
                     .with_borders(Borders::ALL, BorderType::Rounded, input_color)
                     .with_foreground(input_color)
-                    .with_label(String::from("Copy file(s) to…"))
+                    .with_label("Copy file(s) to…", Alignment::Center)
                     .build(),
             )),
         );
@@ -540,7 +539,7 @@ impl FileTransferActivity {
                 InputPropsBuilder::default()
                     .with_borders(Borders::ALL, BorderType::Rounded, input_color)
                     .with_foreground(input_color)
-                    .with_label(String::from("Execute command"))
+                    .with_label("Execute command", Alignment::Center)
                     .build(),
             )),
         );
@@ -570,7 +569,10 @@ impl FileTransferActivity {
             super::COMPONENT_EXPLORER_FIND,
             Box::new(FileList::new(
                 FileListPropsBuilder::default()
-                    .with_files(Some(format!("Search results for \"{}\"", search)), vec![])
+                    .with_title(
+                        format!("Search results for \"{}\"", search),
+                        Alignment::Left,
+                    )
                     .with_borders(Borders::ALL, BorderType::Plain, hg)
                     .with_highlight_color(hg)
                     .with_background(bg)
@@ -594,7 +596,7 @@ impl FileTransferActivity {
                 InputPropsBuilder::default()
                     .with_borders(Borders::ALL, BorderType::Rounded, input_color)
                     .with_foreground(input_color)
-                    .with_label(String::from("Search files by name"))
+                    .with_label("Search files by name", Alignment::Center)
                     .build(),
             )),
         );
@@ -615,7 +617,7 @@ impl FileTransferActivity {
                 InputPropsBuilder::default()
                     .with_borders(Borders::ALL, BorderType::Rounded, input_color)
                     .with_foreground(input_color)
-                    .with_label(String::from("Change working directory"))
+                    .with_label("Change working directory", Alignment::Center)
                     .build(),
             )),
         );
@@ -634,7 +636,7 @@ impl FileTransferActivity {
                 InputPropsBuilder::default()
                     .with_borders(Borders::ALL, BorderType::Rounded, input_color)
                     .with_foreground(input_color)
-                    .with_label(String::from("Insert directory name"))
+                    .with_label("Insert directory name", Alignment::Center)
                     .build(),
             )),
         );
@@ -653,7 +655,7 @@ impl FileTransferActivity {
                 InputPropsBuilder::default()
                     .with_borders(Borders::ALL, BorderType::Rounded, input_color)
                     .with_foreground(input_color)
-                    .with_label(String::from("New file name"))
+                    .with_label("New file name", Alignment::Center)
                     .build(),
             )),
         );
@@ -672,7 +674,7 @@ impl FileTransferActivity {
                 InputPropsBuilder::default()
                     .with_borders(Borders::ALL, BorderType::Rounded, input_color)
                     .with_foreground(input_color)
-                    .with_label(String::from("Open file with…"))
+                    .with_label("Open file with…", Alignment::Center)
                     .build(),
             )),
         );
@@ -691,7 +693,7 @@ impl FileTransferActivity {
                 InputPropsBuilder::default()
                     .with_borders(Borders::ALL, BorderType::Rounded, input_color)
                     .with_foreground(input_color)
-                    .with_label(String::from("Move file(s) to…"))
+                    .with_label("Move file(s) to…", Alignment::Center)
                     .build(),
             )),
         );
@@ -710,7 +712,7 @@ impl FileTransferActivity {
                 InputPropsBuilder::default()
                     .with_borders(Borders::ALL, BorderType::Rounded, input_color)
                     .with_foreground(input_color)
-                    .with_label(String::from("Save as…"))
+                    .with_label("Save as…", Alignment::Center)
                     .build(),
             )),
         );
@@ -735,7 +737,7 @@ impl FileTransferActivity {
                         BorderType::Rounded,
                         Color::Reset,
                     )
-                    .with_texts(Some(root_name), String::new())
+                    .with_title(root_name, Alignment::Center)
                     .build(),
             )),
         );
@@ -750,7 +752,7 @@ impl FileTransferActivity {
                         BorderType::Rounded,
                         Color::Reset,
                     )
-                    .with_texts(Some(String::from("Please wait")), String::new())
+                    .with_title("Please wait", Alignment::Center)
                     .build(),
             )),
         );
@@ -770,10 +772,10 @@ impl FileTransferActivity {
             _ => panic!("You can't mount file sorting when in found result"),
         };
         let index: usize = match sorting {
-            FileSorting::ByCreationTime => 2,
-            FileSorting::ByModifyTime => 1,
-            FileSorting::ByName => 0,
-            FileSorting::BySize => 3,
+            FileSorting::CreationTime => 2,
+            FileSorting::ModifyTime => 1,
+            FileSorting::Name => 0,
+            FileSorting::Size => 3,
         };
         self.view.mount(
             super::COMPONENT_RADIO_SORTING,
@@ -782,15 +784,13 @@ impl FileTransferActivity {
                     .with_color(sorting_color)
                     .with_inverted_color(Color::Black)
                     .with_borders(Borders::ALL, BorderType::Rounded, sorting_color)
-                    .with_options(
-                        Some(String::from("Sort files by")),
-                        vec![
-                            String::from("Name"),
-                            String::from("Modify time"),
-                            String::from("Creation time"),
-                            String::from("Size"),
-                        ],
-                    )
+                    .with_title("Sort files by", Alignment::Center)
+                    .with_options(&[
+                        String::from("Name"),
+                        String::from("Modify time"),
+                        String::from("Creation time"),
+                        String::from("Size"),
+                    ])
                     .with_value(index)
                     .build(),
             )),
@@ -811,11 +811,10 @@ impl FileTransferActivity {
                     .with_color(warn_color)
                     .with_inverted_color(Color::Black)
                     .with_borders(Borders::ALL, BorderType::Plain, warn_color)
-                    .with_options(
-                        Some(String::from("Delete file")),
-                        vec![String::from("Yes"), String::from("No")],
-                    )
+                    .with_title("Delete file", Alignment::Center)
+                    .with_options(&[String::from("Yes"), String::from("No")])
                     .with_value(1)
+                    .rewind(true)
                     .build(),
             )),
         );
@@ -841,54 +840,35 @@ impl FileTransferActivity {
             None => format!("{}", file.get_abs_path().display()),
         };
         // Make texts
-        texts.add_col(TextSpan::from("Path: ")).add_col(
-            TextSpanBuilder::new(path.as_str())
-                .with_foreground(Color::Yellow)
-                .build(),
-        );
+        texts
+            .add_col(TextSpan::from("Path: "))
+            .add_col(TextSpan::new(path.as_str()).fg(Color::Yellow));
         if let Some(filetype) = file.get_ftype() {
             texts
                 .add_row()
                 .add_col(TextSpan::from("File type: "))
-                .add_col(
-                    TextSpanBuilder::new(filetype.as_str())
-                        .with_foreground(Color::LightGreen)
-                        .build(),
-                );
+                .add_col(TextSpan::new(filetype.as_str()).fg(Color::LightGreen));
         }
         let (bsize, size): (ByteSize, usize) = (ByteSize(file.get_size() as u64), file.get_size());
-        texts.add_row().add_col(TextSpan::from("Size: ")).add_col(
-            TextSpanBuilder::new(format!("{} ({})", bsize, size).as_str())
-                .with_foreground(Color::Cyan)
-                .build(),
-        );
+        texts
+            .add_row()
+            .add_col(TextSpan::from("Size: "))
+            .add_col(TextSpan::new(format!("{} ({})", bsize, size).as_str()).fg(Color::Cyan));
         let ctime: String = fmt_time(file.get_creation_time(), "%b %d %Y %H:%M:%S");
         let atime: String = fmt_time(file.get_last_access_time(), "%b %d %Y %H:%M:%S");
         let mtime: String = fmt_time(file.get_creation_time(), "%b %d %Y %H:%M:%S");
         texts
             .add_row()
             .add_col(TextSpan::from("Creation time: "))
-            .add_col(
-                TextSpanBuilder::new(ctime.as_str())
-                    .with_foreground(Color::LightGreen)
-                    .build(),
-            );
+            .add_col(TextSpan::new(ctime.as_str()).fg(Color::LightGreen));
         texts
             .add_row()
             .add_col(TextSpan::from("Last modified time: "))
-            .add_col(
-                TextSpanBuilder::new(mtime.as_str())
-                    .with_foreground(Color::LightBlue)
-                    .build(),
-            );
+            .add_col(TextSpan::new(mtime.as_str()).fg(Color::LightBlue));
         texts
             .add_row()
             .add_col(TextSpan::from("Last access time: "))
-            .add_col(
-                TextSpanBuilder::new(atime.as_str())
-                    .with_foreground(Color::LightRed)
-                    .build(),
-            );
+            .add_col(TextSpan::new(atime.as_str()).fg(Color::LightRed));
         // User
         #[cfg(target_family = "unix")]
         let username: String = match file.get_user() {
@@ -911,22 +891,21 @@ impl FileTransferActivity {
         };
         #[cfg(target_os = "windows")]
         let group: String = format!("{}", file.get_group().unwrap_or(0));
-        texts.add_row().add_col(TextSpan::from("User: ")).add_col(
-            TextSpanBuilder::new(username.as_str())
-                .with_foreground(Color::LightYellow)
-                .build(),
-        );
-        texts.add_row().add_col(TextSpan::from("Group: ")).add_col(
-            TextSpanBuilder::new(group.as_str())
-                .with_foreground(Color::Blue)
-                .build(),
-        );
+        texts
+            .add_row()
+            .add_col(TextSpan::from("User: "))
+            .add_col(TextSpan::new(username.as_str()).fg(Color::LightYellow));
+        texts
+            .add_row()
+            .add_col(TextSpan::from("Group: "))
+            .add_col(TextSpan::new(group.as_str()).fg(Color::Blue));
         self.view.mount(
             super::COMPONENT_LIST_FILEINFO,
             Box::new(Table::new(
                 TablePropsBuilder::default()
                     .with_borders(Borders::ALL, BorderType::Rounded, Color::White)
-                    .with_table(Some(file.get_name().to_string()), texts.build())
+                    .with_title(file.get_name(), Alignment::Left)
+                    .with_table(texts.build())
                     .build(),
             )),
         );
@@ -941,22 +920,16 @@ impl FileTransferActivity {
         let sorting_color = self.theme().transfer_status_sorting;
         let hidden_color = self.theme().transfer_status_hidden;
         let local_bar_spans: Vec<TextSpan> = vec![
-            TextSpanBuilder::new("File sorting: ")
-                .with_foreground(sorting_color)
-                .build(),
-            TextSpanBuilder::new(Self::get_file_sorting_str(self.local().get_file_sorting()))
-                .with_foreground(sorting_color)
-                .reversed()
-                .build(),
-            TextSpanBuilder::new(" Hidden files: ")
-                .with_foreground(hidden_color)
-                .build(),
-            TextSpanBuilder::new(Self::get_hidden_files_str(
+            TextSpan::new("File sorting: ").fg(sorting_color),
+            TextSpan::new(Self::get_file_sorting_str(self.local().get_file_sorting()))
+                .fg(sorting_color)
+                .reversed(),
+            TextSpan::new(" Hidden files: ").fg(hidden_color),
+            TextSpan::new(Self::get_hidden_files_str(
                 self.local().hidden_files_visible(),
             ))
-            .with_foreground(hidden_color)
-            .reversed()
-            .build(),
+            .fg(hidden_color)
+            .reversed(),
         ];
         if let Some(props) = self.view.get_props(super::COMPONENT_SPAN_STATUS_BAR_LOCAL) {
             self.view.update(
@@ -973,32 +946,23 @@ impl FileTransferActivity {
         let hidden_color = self.theme().transfer_status_hidden;
         let sync_color = self.theme().transfer_status_sync_browsing;
         let remote_bar_spans: Vec<TextSpan> = vec![
-            TextSpanBuilder::new("File sorting: ")
-                .with_foreground(sorting_color)
-                .build(),
-            TextSpanBuilder::new(Self::get_file_sorting_str(self.remote().get_file_sorting()))
-                .with_foreground(sorting_color)
-                .reversed()
-                .build(),
-            TextSpanBuilder::new(" Hidden files: ")
-                .with_foreground(hidden_color)
-                .build(),
-            TextSpanBuilder::new(Self::get_hidden_files_str(
+            TextSpan::new("File sorting: ").fg(sorting_color),
+            TextSpan::new(Self::get_file_sorting_str(self.remote().get_file_sorting()))
+                .fg(sorting_color)
+                .reversed(),
+            TextSpan::new(" Hidden files: ").fg(hidden_color),
+            TextSpan::new(Self::get_hidden_files_str(
                 self.remote().hidden_files_visible(),
             ))
-            .with_foreground(hidden_color)
-            .reversed()
-            .build(),
-            TextSpanBuilder::new(" Sync Browsing: ")
-                .with_foreground(sync_color)
-                .build(),
-            TextSpanBuilder::new(match self.browser.sync_browsing {
+            .fg(hidden_color)
+            .reversed(),
+            TextSpan::new(" Sync Browsing: ").fg(sync_color),
+            TextSpan::new(match self.browser.sync_browsing {
                 true => "ON ",
                 false => "OFF",
             })
-            .with_foreground(sync_color)
-            .reversed()
-            .build(),
+            .fg(sync_color)
+            .reversed(),
         ];
         if let Some(props) = self.view.get_props(super::COMPONENT_SPAN_STATUS_BAR_REMOTE) {
             self.view.update(
@@ -1017,253 +981,109 @@ impl FileTransferActivity {
         let key_color = self.theme().misc_keys;
         self.view.mount(
             super::COMPONENT_TEXT_HELP,
-            Box::new(Scrolltable::new(
-                ScrollTablePropsBuilder::default()
+            Box::new(List::new(
+                ListPropsBuilder::default()
                     .with_borders(Borders::ALL, BorderType::Rounded, Color::White)
                     .with_highlighted_str(Some("?"))
                     .with_max_scroll_step(8)
                     .bold()
-                    .with_table(
-                        Some(String::from("Help")),
+                    .scrollable(true)
+                    .with_title("Help", Alignment::Center)
+                    .with_rows(
                         TableBuilder::default()
-                            .add_col(
-                                TextSpanBuilder::new("<ESC>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<ESC>").bold().fg(key_color))
                             .add_col(TextSpan::from("           Disconnect"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<TAB>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<TAB>").bold().fg(key_color))
                             .add_col(TextSpan::from(
                                 "           Switch between explorer and logs",
                             ))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<BACKSPACE>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<BACKSPACE>").bold().fg(key_color))
                             .add_col(TextSpan::from("     Go to previous directory"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<RIGHT/LEFT>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<RIGHT/LEFT>").bold().fg(key_color))
                             .add_col(TextSpan::from("    Change explorer tab"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<UP/DOWN>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<UP/DOWN>").bold().fg(key_color))
                             .add_col(TextSpan::from("       Move up/down in list"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<ENTER>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<ENTER>").bold().fg(key_color))
                             .add_col(TextSpan::from("         Enter directory"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<SPACE>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<SPACE>").bold().fg(key_color))
                             .add_col(TextSpan::from("         Upload/Download file"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<A>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<A>").bold().fg(key_color))
                             .add_col(TextSpan::from("             Toggle hidden files"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<B>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<B>").bold().fg(key_color))
                             .add_col(TextSpan::from("             Change file sorting mode"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<C>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<C>").bold().fg(key_color))
                             .add_col(TextSpan::from("             Copy"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<D>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<D>").bold().fg(key_color))
                             .add_col(TextSpan::from("             Make directory"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<G>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<G>").bold().fg(key_color))
                             .add_col(TextSpan::from("             Go to path"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<H>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<H>").bold().fg(key_color))
                             .add_col(TextSpan::from("             Show help"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<I>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<I>").bold().fg(key_color))
                             .add_col(TextSpan::from("             Show info about selected file"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<L>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<L>").bold().fg(key_color))
                             .add_col(TextSpan::from("             Reload directory content"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<M>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<M>").bold().fg(key_color))
                             .add_col(TextSpan::from("             Select file"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<N>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<N>").bold().fg(key_color))
                             .add_col(TextSpan::from("             Create new file"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<O>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<O>").bold().fg(key_color))
                             .add_col(TextSpan::from(
                                 "             Open text file with preferred editor",
                             ))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<Q>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<Q>").bold().fg(key_color))
                             .add_col(TextSpan::from("             Quit termscp"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<R>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<R>").bold().fg(key_color))
                             .add_col(TextSpan::from("             Rename file"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<S>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<S>").bold().fg(key_color))
                             .add_col(TextSpan::from("             Save file as"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<U>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<U>").bold().fg(key_color))
                             .add_col(TextSpan::from("             Go to parent directory"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<V>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<V>").bold().fg(key_color))
                             .add_col(TextSpan::from(
                                 "             Open file with default application for file type",
                             ))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<W>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<W>").bold().fg(key_color))
                             .add_col(TextSpan::from(
                                 "             Open file with specified application",
                             ))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<X>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<X>").bold().fg(key_color))
                             .add_col(TextSpan::from("             Execute shell command"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<Y>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<Y>").bold().fg(key_color))
                             .add_col(TextSpan::from("             Toggle synchronized browsing"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<DEL|E>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<DEL|E>").bold().fg(key_color))
                             .add_col(TextSpan::from("         Delete selected file"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<CTRL+A>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<CTRL+A>").bold().fg(key_color))
                             .add_col(TextSpan::from("        Select all files"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<CTRL+C>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<CTRL+C>").bold().fg(key_color))
                             .add_col(TextSpan::from("        Interrupt file transfer"))
                             .build(),
                     )
@@ -1280,10 +1100,10 @@ impl FileTransferActivity {
 
     fn get_file_sorting_str(mode: FileSorting) -> &'static str {
         match mode {
-            FileSorting::ByName => "By name",
-            FileSorting::ByCreationTime => "By creation time",
-            FileSorting::ByModifyTime => "By modify time",
-            FileSorting::BySize => "By size",
+            FileSorting::Name => "By name",
+            FileSorting::CreationTime => "By creation time",
+            FileSorting::ModifyTime => "By modify time",
+            FileSorting::Size => "By size",
         }
     }
 

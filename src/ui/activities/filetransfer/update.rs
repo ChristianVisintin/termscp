@@ -42,9 +42,9 @@ use crate::ui::components::{file_list::FileListPropsBuilder, logbox::LogboxProps
 use crate::ui::keymap::*;
 use crate::utils::fmt::fmt_path_elide_ex;
 // externals
+use tui_realm_stdlib::progress_bar::ProgressBarPropsBuilder;
 use tuirealm::{
-    components::progress_bar::ProgressBarPropsBuilder,
-    props::{PropsBuilder, TableBuilder, TextSpan, TextSpanBuilder},
+    props::{Alignment, PropsBuilder, TableBuilder, TextSpan},
     tui::style::Color,
     Msg, Payload, Update, Value,
 };
@@ -63,13 +63,13 @@ impl Update for FileTransferActivity {
             None => None, // Exit after None
             Some(msg) => match msg {
                 // -- local tab
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_RIGHT) => {
+                (COMPONENT_EXPLORER_LOCAL, key) if key == &MSG_KEY_RIGHT => {
                     // Change tab
                     self.view.active(COMPONENT_EXPLORER_REMOTE);
                     self.browser.change_tab(FileExplorerTab::Remote);
                     None
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_BACKSPACE) => {
+                (COMPONENT_EXPLORER_LOCAL, key) if key == &MSG_KEY_BACKSPACE => {
                     // Go to previous directory
                     self.action_go_to_previous_local_dir(false);
                     if self.browser.sync_browsing {
@@ -98,11 +98,11 @@ impl Update for FileTransferActivity {
                         None
                     }
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_SPACE) => {
+                (COMPONENT_EXPLORER_LOCAL, key) if key == &MSG_KEY_SPACE => {
                     self.action_local_send();
                     self.update_remote_filelist()
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_CHAR_A) => {
+                (COMPONENT_EXPLORER_LOCAL, key) if key == &MSG_KEY_CHAR_A => {
                     // Toggle hidden files
                     self.local_mut().toggle_hidden_files();
                     // Update status bar
@@ -110,24 +110,24 @@ impl Update for FileTransferActivity {
                     // Reload file list component
                     self.update_local_filelist()
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_CHAR_I) => {
+                (COMPONENT_EXPLORER_LOCAL, key) if key == &MSG_KEY_CHAR_I => {
                     if let SelectedEntry::One(file) = self.get_local_selected_entries() {
                         self.mount_file_info(&file);
                     }
                     None
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_CHAR_L) => {
+                (COMPONENT_EXPLORER_LOCAL, key) if key == &MSG_KEY_CHAR_L => {
                     // Reload directory
                     self.reload_local_dir();
                     // Reload file list component
                     self.update_local_filelist()
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_CHAR_O) => {
+                (COMPONENT_EXPLORER_LOCAL, key) if key == &MSG_KEY_CHAR_O => {
                     self.action_edit_local_file();
                     // Reload file list component
                     self.update_local_filelist()
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_CHAR_U) => {
+                (COMPONENT_EXPLORER_LOCAL, key) if key == &MSG_KEY_CHAR_U => {
                     self.action_go_to_local_upper_dir(false);
                     if self.browser.sync_browsing {
                         let _ = self.update_remote_filelist();
@@ -136,7 +136,7 @@ impl Update for FileTransferActivity {
                     self.update_local_filelist()
                 }
                 // -- remote tab
-                (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_LEFT) => {
+                (COMPONENT_EXPLORER_REMOTE, key) if key == &MSG_KEY_LEFT => {
                     // Change tab
                     self.view.active(COMPONENT_EXPLORER_LOCAL);
                     self.browser.change_tab(FileExplorerTab::Local);
@@ -162,11 +162,11 @@ impl Update for FileTransferActivity {
                         None
                     }
                 }
-                (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_SPACE) => {
+                (COMPONENT_EXPLORER_REMOTE, key) if key == &MSG_KEY_SPACE => {
                     self.action_remote_recv();
                     self.update_local_filelist()
                 }
-                (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_BACKSPACE) => {
+                (COMPONENT_EXPLORER_REMOTE, key) if key == &MSG_KEY_BACKSPACE => {
                     // Go to previous directory
                     self.action_go_to_previous_remote_dir(false);
                     // If sync is enabled update local too
@@ -176,7 +176,7 @@ impl Update for FileTransferActivity {
                     // Reload file list component
                     self.update_remote_filelist()
                 }
-                (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_CHAR_A) => {
+                (COMPONENT_EXPLORER_REMOTE, key) if key == &MSG_KEY_CHAR_A => {
                     // Toggle hidden files
                     self.remote_mut().toggle_hidden_files();
                     // Update status bar
@@ -184,25 +184,25 @@ impl Update for FileTransferActivity {
                     // Reload file list component
                     self.update_remote_filelist()
                 }
-                (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_CHAR_I) => {
+                (COMPONENT_EXPLORER_REMOTE, key) if key == &MSG_KEY_CHAR_I => {
                     if let SelectedEntry::One(file) = self.get_remote_selected_entries() {
                         self.mount_file_info(&file);
                     }
                     None
                 }
-                (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_CHAR_L) => {
+                (COMPONENT_EXPLORER_REMOTE, key) if key == &MSG_KEY_CHAR_L => {
                     // Reload directory
                     self.reload_remote_dir();
                     // Reload file list component
                     self.update_remote_filelist()
                 }
-                (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_CHAR_O) => {
+                (COMPONENT_EXPLORER_REMOTE, key) if key == &MSG_KEY_CHAR_O => {
                     // Edit file
                     self.action_edit_remote_file();
                     // Reload file list component
                     self.update_remote_filelist()
                 }
-                (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_CHAR_U) => {
+                (COMPONENT_EXPLORER_REMOTE, key) if key == &MSG_KEY_CHAR_U => {
                     self.action_go_to_remote_upper_dir(false);
                     if self.browser.sync_browsing {
                         let _ = self.update_local_filelist();
@@ -211,64 +211,78 @@ impl Update for FileTransferActivity {
                     self.update_remote_filelist()
                 }
                 // -- common explorer keys
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_CHAR_B)
-                | (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_CHAR_B) => {
+                (COMPONENT_EXPLORER_LOCAL, key) | (COMPONENT_EXPLORER_REMOTE, key)
+                    if key == &MSG_KEY_CHAR_B =>
+                {
                     // Show sorting file
                     self.mount_file_sorting();
                     None
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_CHAR_C)
-                | (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_CHAR_C) => {
+                (COMPONENT_EXPLORER_LOCAL, key) | (COMPONENT_EXPLORER_REMOTE, key)
+                    if key == &MSG_KEY_CHAR_C =>
+                {
                     self.mount_copy();
                     None
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_CHAR_D)
-                | (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_CHAR_D) => {
+                (COMPONENT_EXPLORER_LOCAL, key) | (COMPONENT_EXPLORER_REMOTE, key)
+                    if key == &MSG_KEY_CHAR_D =>
+                {
                     self.mount_mkdir();
                     None
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_CHAR_F)
-                | (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_CHAR_F) => {
+                (COMPONENT_EXPLORER_LOCAL, key) | (COMPONENT_EXPLORER_REMOTE, key)
+                    if key == &MSG_KEY_CHAR_F =>
+                {
                     self.mount_find_input();
                     None
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_CHAR_G)
-                | (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_CHAR_G) => {
+                (COMPONENT_EXPLORER_LOCAL, key) | (COMPONENT_EXPLORER_REMOTE, key)
+                    if key == &MSG_KEY_CHAR_G =>
+                {
                     self.mount_goto();
                     None
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_CHAR_H)
-                | (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_CHAR_H) => {
+                (COMPONENT_EXPLORER_LOCAL, key) | (COMPONENT_EXPLORER_REMOTE, key)
+                    if key == &MSG_KEY_CHAR_H =>
+                {
                     self.mount_help();
                     None
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_CHAR_N)
-                | (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_CHAR_N) => {
+                (COMPONENT_EXPLORER_LOCAL, key) | (COMPONENT_EXPLORER_REMOTE, key)
+                    if key == &MSG_KEY_CHAR_N =>
+                {
                     self.mount_newfile();
                     None
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_CHAR_Q)
-                | (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_CHAR_Q)
-                | (COMPONENT_LOG_BOX, &MSG_KEY_CHAR_Q) => {
+                (COMPONENT_EXPLORER_LOCAL, key)
+                | (COMPONENT_EXPLORER_REMOTE, key)
+                | (COMPONENT_LOG_BOX, key)
+                    if key == &MSG_KEY_CHAR_Q =>
+                {
                     self.mount_quit();
                     None
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_CHAR_R)
-                | (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_CHAR_R) => {
+                (COMPONENT_EXPLORER_LOCAL, key) | (COMPONENT_EXPLORER_REMOTE, key)
+                    if key == &MSG_KEY_CHAR_R =>
+                {
                     // Mount rename
                     self.mount_rename();
                     None
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_CHAR_S)
-                | (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_CHAR_S)
-                | (COMPONENT_EXPLORER_FIND, &MSG_KEY_CHAR_S) => {
+                (COMPONENT_EXPLORER_LOCAL, key)
+                | (COMPONENT_EXPLORER_REMOTE, key)
+                | (COMPONENT_EXPLORER_FIND, key)
+                    if key == &MSG_KEY_CHAR_S =>
+                {
                     // Mount save as
                     self.mount_saveas();
                     None
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_CHAR_V)
-                | (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_CHAR_V)
-                | (COMPONENT_EXPLORER_FIND, &MSG_KEY_CHAR_V) => {
+                (COMPONENT_EXPLORER_LOCAL, key)
+                | (COMPONENT_EXPLORER_REMOTE, key)
+                | (COMPONENT_EXPLORER_FIND, key)
+                    if key == &MSG_KEY_CHAR_V =>
+                {
                     // View
                     match self.browser.tab() {
                         FileExplorerTab::Local => self.action_open_local(),
@@ -279,44 +293,49 @@ impl Update for FileTransferActivity {
                     }
                     None
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_CHAR_W)
-                | (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_CHAR_W)
-                | (COMPONENT_EXPLORER_FIND, &MSG_KEY_CHAR_W) => {
+                (COMPONENT_EXPLORER_LOCAL, key)
+                | (COMPONENT_EXPLORER_REMOTE, key)
+                | (COMPONENT_EXPLORER_FIND, key)
+                    if key == &MSG_KEY_CHAR_W =>
+                {
                     // Open with
                     self.mount_openwith();
                     None
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_CHAR_X)
-                | (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_CHAR_X) => {
+                (COMPONENT_EXPLORER_LOCAL, key) | (COMPONENT_EXPLORER_REMOTE, key)
+                    if key == &MSG_KEY_CHAR_X =>
+                {
                     // Mount exec
                     self.mount_exec();
                     None
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_CHAR_Y)
-                | (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_CHAR_Y) => {
+                (COMPONENT_EXPLORER_LOCAL, key) | (COMPONENT_EXPLORER_REMOTE, key)
+                    if key == &MSG_KEY_CHAR_Y =>
+                {
                     // Toggle browser sync
                     self.browser.toggle_sync_browsing();
                     // Update status bar
                     self.refresh_remote_status_bar();
                     None
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_ESC)
-                | (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_ESC)
-                | (COMPONENT_LOG_BOX, &MSG_KEY_ESC) => {
+                (COMPONENT_EXPLORER_LOCAL, key)
+                | (COMPONENT_EXPLORER_REMOTE, key)
+                | (COMPONENT_LOG_BOX, key)
+                    if key == &MSG_KEY_ESC =>
+                {
                     self.mount_disconnect();
                     None
                 }
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_DEL)
-                | (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_CHAR_E)
-                | (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_DEL)
-                | (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_CHAR_E)
-                | (COMPONENT_EXPLORER_FIND, &MSG_KEY_DEL)
-                | (COMPONENT_EXPLORER_FIND, &MSG_KEY_CHAR_E) => {
+                (COMPONENT_EXPLORER_LOCAL, key)
+                | (COMPONENT_EXPLORER_REMOTE, key)
+                | (COMPONENT_EXPLORER_FIND, key)
+                    if key == &MSG_KEY_CHAR_E || key == &MSG_KEY_DEL =>
+                {
                     self.mount_radio_delete();
                     None
                 }
                 // -- find result explorer
-                (COMPONENT_EXPLORER_FIND, &MSG_KEY_ESC) => {
+                (COMPONENT_EXPLORER_FIND, key) if key == &MSG_KEY_ESC => {
                     // Umount find
                     self.umount_find();
                     // Finalize find
@@ -337,7 +356,7 @@ impl Update for FileTransferActivity {
                         _ => None,
                     }
                 }
-                (COMPONENT_EXPLORER_FIND, &MSG_KEY_SPACE) => {
+                (COMPONENT_EXPLORER_FIND, key) if key == &MSG_KEY_SPACE => {
                     // Get entry
                     self.action_find_transfer(None);
                     // Reload files
@@ -349,18 +368,19 @@ impl Update for FileTransferActivity {
                     }
                 }
                 // -- switch to log
-                (COMPONENT_EXPLORER_LOCAL, &MSG_KEY_TAB)
-                | (COMPONENT_EXPLORER_REMOTE, &MSG_KEY_TAB) => {
+                (COMPONENT_EXPLORER_LOCAL, key) | (COMPONENT_EXPLORER_REMOTE, key)
+                    if key == &MSG_KEY_TAB =>
+                {
                     self.view.active(COMPONENT_LOG_BOX); // Active log box
                     None
                 }
                 // -- Log box
-                (COMPONENT_LOG_BOX, &MSG_KEY_TAB) => {
+                (COMPONENT_LOG_BOX, key) if key == &MSG_KEY_TAB => {
                     self.view.blur(); // Blur log box
                     None
                 }
                 // -- copy popup
-                (COMPONENT_INPUT_COPY, &MSG_KEY_ESC) => {
+                (COMPONENT_INPUT_COPY, key) if key == &MSG_KEY_ESC => {
                     self.umount_copy();
                     None
                 }
@@ -383,7 +403,7 @@ impl Update for FileTransferActivity {
                 }
                 (COMPONENT_INPUT_COPY, _) => None,
                 // -- exec popup
-                (COMPONENT_INPUT_EXEC, &MSG_KEY_ESC) => {
+                (COMPONENT_INPUT_EXEC, key) if key == &MSG_KEY_ESC => {
                     self.umount_exec();
                     None
                 }
@@ -406,7 +426,7 @@ impl Update for FileTransferActivity {
                 }
                 (COMPONENT_INPUT_EXEC, _) => None,
                 // -- find popup
-                (COMPONENT_INPUT_FIND, &MSG_KEY_ESC) => {
+                (COMPONENT_INPUT_FIND, key) if key == &MSG_KEY_ESC => {
                     self.umount_find_input();
                     None
                 }
@@ -441,7 +461,7 @@ impl Update for FileTransferActivity {
                     None
                 }
                 // -- goto popup
-                (COMPONENT_INPUT_GOTO, &MSG_KEY_ESC) => {
+                (COMPONENT_INPUT_GOTO, key) if key == &MSG_KEY_ESC => {
                     self.umount_goto();
                     None
                 }
@@ -474,7 +494,7 @@ impl Update for FileTransferActivity {
                 }
                 (COMPONENT_INPUT_GOTO, _) => None,
                 // -- make directory
-                (COMPONENT_INPUT_MKDIR, &MSG_KEY_ESC) => {
+                (COMPONENT_INPUT_MKDIR, key) if key == &MSG_KEY_ESC => {
                     self.umount_mkdir();
                     None
                 }
@@ -494,7 +514,7 @@ impl Update for FileTransferActivity {
                 }
                 (COMPONENT_INPUT_MKDIR, _) => None,
                 // -- new file
-                (COMPONENT_INPUT_NEWFILE, &MSG_KEY_ESC) => {
+                (COMPONENT_INPUT_NEWFILE, key) if key == &MSG_KEY_ESC => {
                     self.umount_newfile();
                     None
                 }
@@ -514,7 +534,7 @@ impl Update for FileTransferActivity {
                 }
                 (COMPONENT_INPUT_NEWFILE, _) => None,
                 // -- open with
-                (COMPONENT_INPUT_OPEN_WITH, &MSG_KEY_ESC) => {
+                (COMPONENT_INPUT_OPEN_WITH, key) if key == &MSG_KEY_ESC => {
                     self.umount_openwith();
                     None
                 }
@@ -531,7 +551,7 @@ impl Update for FileTransferActivity {
                 }
                 (COMPONENT_INPUT_OPEN_WITH, _) => None,
                 // -- rename
-                (COMPONENT_INPUT_RENAME, &MSG_KEY_ESC) => {
+                (COMPONENT_INPUT_RENAME, key) if key == &MSG_KEY_ESC => {
                     self.umount_rename();
                     None
                 }
@@ -553,7 +573,7 @@ impl Update for FileTransferActivity {
                 }
                 (COMPONENT_INPUT_RENAME, _) => None,
                 // -- save as
-                (COMPONENT_INPUT_SAVEAS, &MSG_KEY_ESC) => {
+                (COMPONENT_INPUT_SAVEAS, key) if key == &MSG_KEY_ESC => {
                     self.umount_saveas();
                     None
                 }
@@ -578,15 +598,18 @@ impl Update for FileTransferActivity {
                 }
                 (COMPONENT_INPUT_SAVEAS, _) => None,
                 // -- fileinfo
-                (COMPONENT_LIST_FILEINFO, &MSG_KEY_ENTER)
-                | (COMPONENT_LIST_FILEINFO, &MSG_KEY_ESC) => {
+                (COMPONENT_LIST_FILEINFO, key) | (COMPONENT_LIST_FILEINFO, key)
+                    if key == &MSG_KEY_ENTER || key == &MSG_KEY_ESC =>
+                {
                     self.umount_file_info();
                     None
                 }
                 (COMPONENT_LIST_FILEINFO, _) => None,
                 // -- delete
-                (COMPONENT_RADIO_DELETE, &MSG_KEY_ESC)
-                | (COMPONENT_RADIO_DELETE, Msg::OnSubmit(Payload::One(Value::Usize(1)))) => {
+                (COMPONENT_RADIO_DELETE, key)
+                    if key == &MSG_KEY_ESC
+                        || key == &Msg::OnSubmit(Payload::One(Value::Usize(1))) =>
+                {
                     self.umount_radio_delete();
                     None
                 }
@@ -631,8 +654,10 @@ impl Update for FileTransferActivity {
                 }
                 (COMPONENT_RADIO_DELETE, _) => None,
                 // -- disconnect
-                (COMPONENT_RADIO_DISCONNECT, &MSG_KEY_ESC)
-                | (COMPONENT_RADIO_DISCONNECT, Msg::OnSubmit(Payload::One(Value::Usize(1)))) => {
+                (COMPONENT_RADIO_DISCONNECT, key)
+                    if key == &MSG_KEY_ESC
+                        || key == &Msg::OnSubmit(Payload::One(Value::Usize(1))) =>
+                {
                     self.umount_disconnect();
                     None
                 }
@@ -643,8 +668,10 @@ impl Update for FileTransferActivity {
                 }
                 (COMPONENT_RADIO_DISCONNECT, _) => None,
                 // -- quit
-                (COMPONENT_RADIO_QUIT, &MSG_KEY_ESC)
-                | (COMPONENT_RADIO_QUIT, Msg::OnSubmit(Payload::One(Value::Usize(1)))) => {
+                (COMPONENT_RADIO_QUIT, key)
+                    if key == &MSG_KEY_ESC
+                        || key == &Msg::OnSubmit(Payload::One(Value::Usize(1))) =>
+                {
                     self.umount_quit();
                     None
                 }
@@ -655,18 +682,21 @@ impl Update for FileTransferActivity {
                 }
                 (COMPONENT_RADIO_QUIT, _) => None,
                 // -- sorting
-                (COMPONENT_RADIO_SORTING, &MSG_KEY_ESC)
-                | (COMPONENT_RADIO_SORTING, Msg::OnSubmit(_)) => {
+                (COMPONENT_RADIO_SORTING, key) if key == &MSG_KEY_ESC => {
+                    self.umount_file_sorting();
+                    None
+                }
+                (COMPONENT_RADIO_SORTING, Msg::OnSubmit(_)) => {
                     self.umount_file_sorting();
                     None
                 }
                 (COMPONENT_RADIO_SORTING, Msg::OnChange(Payload::One(Value::Usize(mode)))) => {
                     // Get sorting mode
                     let sorting: FileSorting = match mode {
-                        1 => FileSorting::ByModifyTime,
-                        2 => FileSorting::ByCreationTime,
-                        3 => FileSorting::BySize,
-                        _ => FileSorting::ByName,
+                        1 => FileSorting::ModifyTime,
+                        2 => FileSorting::CreationTime,
+                        3 => FileSorting::Size,
+                        _ => FileSorting::Name,
                     };
                     match self.browser.tab() {
                         FileExplorerTab::Local => self.local_mut().sort_by(sorting),
@@ -688,25 +718,31 @@ impl Update for FileTransferActivity {
                 }
                 (COMPONENT_RADIO_SORTING, _) => None,
                 // -- error
-                (COMPONENT_TEXT_ERROR, &MSG_KEY_ESC) | (COMPONENT_TEXT_ERROR, &MSG_KEY_ENTER) => {
+                (COMPONENT_TEXT_ERROR, key) | (COMPONENT_TEXT_ERROR, key)
+                    if key == &MSG_KEY_ESC || key == &MSG_KEY_ENTER =>
+                {
                     self.umount_error();
                     None
                 }
                 (COMPONENT_TEXT_ERROR, _) => None,
                 // -- fatal
-                (COMPONENT_TEXT_FATAL, &MSG_KEY_ESC) | (COMPONENT_TEXT_FATAL, &MSG_KEY_ENTER) => {
+                (COMPONENT_TEXT_FATAL, key) | (COMPONENT_TEXT_FATAL, key)
+                    if key == &MSG_KEY_ESC || key == &MSG_KEY_ENTER =>
+                {
                     self.exit_reason = Some(super::ExitReason::Disconnect);
                     None
                 }
                 (COMPONENT_TEXT_FATAL, _) => None,
                 // -- help
-                (COMPONENT_TEXT_HELP, &MSG_KEY_ESC) | (COMPONENT_TEXT_HELP, &MSG_KEY_ENTER) => {
+                (COMPONENT_TEXT_HELP, key) | (COMPONENT_TEXT_HELP, key)
+                    if key == &MSG_KEY_ESC || key == &MSG_KEY_ENTER =>
+                {
                     self.umount_help();
                     None
                 }
                 (COMPONENT_TEXT_HELP, _) => None,
                 // -- progress bar
-                (COMPONENT_PROGRESS_BAR_PARTIAL, &MSG_KEY_CTRL_C) => {
+                (COMPONENT_PROGRESS_BAR_PARTIAL, key) if key == &MSG_KEY_CTRL_C => {
                     // Set transfer aborted to True
                     self.transfer.abort();
                     None
@@ -752,7 +788,8 @@ impl FileTransferActivity {
                     .collect();
                 // Update
                 let props = FileListPropsBuilder::from(props)
-                    .with_files(Some(hostname), files)
+                    .with_files(files)
+                    .with_title(hostname, Alignment::Left)
                     .build();
                 // Update
                 self.view.update(super::COMPONENT_EXPLORER_LOCAL, props)
@@ -790,7 +827,8 @@ impl FileTransferActivity {
                     .collect();
                 // Update
                 let props = FileListPropsBuilder::from(props)
-                    .with_files(Some(hostname), files)
+                    .with_files(files)
+                    .with_title(hostname, Alignment::Left)
                     .build();
                 self.view.update(super::COMPONENT_EXPLORER_REMOTE, props)
             }
@@ -823,7 +861,7 @@ impl FileTransferActivity {
                         )))
                         .add_col(TextSpan::from(" ["))
                         .add_col(
-                            TextSpanBuilder::new(
+                            TextSpan::new(
                                 format!(
                                     "{:5}",
                                     match record.level {
@@ -834,16 +872,13 @@ impl FileTransferActivity {
                                 )
                                 .as_str(),
                             )
-                            .with_foreground(fg)
-                            .build(),
+                            .fg(fg),
                         )
                         .add_col(TextSpan::from("]: "))
                         .add_col(TextSpan::from(record.msg.as_ref()));
                 }
                 let table = table.build();
-                let props = LogboxPropsBuilder::from(props)
-                    .with_log(Some(String::from("Log")), table)
-                    .build();
+                let props = LogboxPropsBuilder::from(props).with_log(table).build();
                 self.view.update(super::COMPONENT_LOG_BOX, props)
             }
             None => None,
@@ -852,9 +887,8 @@ impl FileTransferActivity {
 
     pub(super) fn update_progress_bar(&mut self, filename: String) -> Option<(String, Msg)> {
         if let Some(props) = self.view.get_props(COMPONENT_PROGRESS_BAR_FULL) {
-            let root_name: String = props.texts.title.as_deref().unwrap_or("").to_string();
             let props = ProgressBarPropsBuilder::from(props)
-                .with_texts(Some(root_name), self.transfer.full.to_string())
+                .with_label(self.transfer.full.to_string())
                 .with_progress(self.transfer.full.calc_progress())
                 .build();
             let _ = self.view.update(COMPONENT_PROGRESS_BAR_FULL, props);
@@ -862,7 +896,8 @@ impl FileTransferActivity {
         match self.view.get_props(COMPONENT_PROGRESS_BAR_PARTIAL) {
             Some(props) => {
                 let props = ProgressBarPropsBuilder::from(props)
-                    .with_texts(Some(filename), self.transfer.partial.to_string())
+                    .with_title(filename, Alignment::Center)
+                    .with_label(self.transfer.partial.to_string())
                     .with_progress(self.transfer.partial.calc_progress())
                     .build();
                 self.view.update(COMPONENT_PROGRESS_BAR_PARTIAL, props)
@@ -889,7 +924,6 @@ impl FileTransferActivity {
         match self.view.get_props(COMPONENT_EXPLORER_FIND) {
             None => None,
             Some(props) => {
-                let title: String = props.texts.title.clone().unwrap_or_default();
                 // Prepare files
                 let files: Vec<String> = self
                     .found()
@@ -897,9 +931,7 @@ impl FileTransferActivity {
                     .iter_files()
                     .map(|x: &FsEntry| self.found().unwrap().fmt_file(x))
                     .collect();
-                let props = FileListPropsBuilder::from(props)
-                    .with_files(Some(title), files)
-                    .build();
+                let props = FileListPropsBuilder::from(props).with_files(files).build();
                 self.view.update(COMPONENT_EXPLORER_FIND, props)
             }
         }

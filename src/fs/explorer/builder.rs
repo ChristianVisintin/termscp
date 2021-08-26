@@ -124,7 +124,7 @@ mod tests {
         let explorer: FileExplorer = FileExplorerBuilder::new().build();
         // Verify
         assert!(!explorer.opts.intersects(ExplorerOpts::SHOW_HIDDEN_FILES));
-        assert_eq!(explorer.file_sorting, FileSorting::ByName); // Default
+        assert_eq!(explorer.file_sorting, FileSorting::Name); // Default
         assert_eq!(explorer.group_dirs, None);
         assert_eq!(explorer.stack_size, 16);
     }
@@ -132,7 +132,7 @@ mod tests {
     #[test]
     fn test_fs_explorer_builder_new_all() {
         let explorer: FileExplorer = FileExplorerBuilder::new()
-            .with_file_sorting(FileSorting::ByModifyTime)
+            .with_file_sorting(FileSorting::ModifyTime)
             .with_group_dirs(Some(GroupDirs::First))
             .with_hidden_files(true)
             .with_stack_size(24)
@@ -140,7 +140,7 @@ mod tests {
             .build();
         // Verify
         assert!(explorer.opts.intersects(ExplorerOpts::SHOW_HIDDEN_FILES));
-        assert_eq!(explorer.file_sorting, FileSorting::ByModifyTime); // Default
+        assert_eq!(explorer.file_sorting, FileSorting::ModifyTime); // Default
         assert_eq!(explorer.group_dirs, Some(GroupDirs::First));
         assert_eq!(explorer.stack_size, 24);
     }

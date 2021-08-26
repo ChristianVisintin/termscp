@@ -52,10 +52,10 @@ bitflags! {
 /// FileSorting defines the criteria for sorting files
 #[derive(Copy, Clone, PartialEq, std::fmt::Debug)]
 pub enum FileSorting {
-    ByName,
-    ByModifyTime,
-    ByCreationTime,
-    BySize,
+    Name,
+    ModifyTime,
+    CreationTime,
+    Size,
 }
 
 /// ## GroupDirs
@@ -87,7 +87,7 @@ impl Default for FileExplorer {
             wrkdir: PathBuf::from("/"),
             dirstack: VecDeque::with_capacity(16),
             stack_size: 16,
-            file_sorting: FileSorting::ByName,
+            file_sorting: FileSorting::Name,
             group_dirs: None,
             opts: ExplorerOpts::empty(),
             fmt: Formatter::default(),
@@ -237,10 +237,10 @@ impl FileExplorer {
     fn sort(&mut self) {
         // Choose sorting method
         match &self.file_sorting {
-            FileSorting::ByName => self.sort_files_by_name(),
-            FileSorting::ByCreationTime => self.sort_files_by_creation_time(),
-            FileSorting::ByModifyTime => self.sort_files_by_mtime(),
-            FileSorting::BySize => self.sort_files_by_size(),
+            FileSorting::Name => self.sort_files_by_name(),
+            FileSorting::CreationTime => self.sort_files_by_creation_time(),
+            FileSorting::ModifyTime => self.sort_files_by_mtime(),
+            FileSorting::Size => self.sort_files_by_size(),
         }
         // Directories first (NOTE: MUST COME AFTER OTHER SORTING)
         // Group directories if necessary
@@ -318,10 +318,10 @@ impl FileExplorer {
 impl ToString for FileSorting {
     fn to_string(&self) -> String {
         String::from(match self {
-            FileSorting::ByCreationTime => "by_creation_time",
-            FileSorting::ByModifyTime => "by_mtime",
-            FileSorting::ByName => "by_name",
-            FileSorting::BySize => "by_size",
+            FileSorting::CreationTime => "by_creation_time",
+            FileSorting::ModifyTime => "by_mtime",
+            FileSorting::Name => "by_name",
+            FileSorting::Size => "by_size",
         })
     }
 }
@@ -330,10 +330,10 @@ impl FromStr for FileSorting {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
-            "by_creation_time" => Ok(FileSorting::ByCreationTime),
-            "by_mtime" => Ok(FileSorting::ByModifyTime),
-            "by_name" => Ok(FileSorting::ByName),
-            "by_size" => Ok(FileSorting::BySize),
+            "by_creation_time" => Ok(FileSorting::CreationTime),
+            "by_mtime" => Ok(FileSorting::ModifyTime),
+            "by_name" => Ok(FileSorting::Name),
+            "by_size" => Ok(FileSorting::Size),
             _ => Err(()),
         }
     }
@@ -363,7 +363,7 @@ impl FromStr for GroupDirs {
 mod tests {
 
     use super::*;
-    use crate::fs::{FsDirectory, FsFile};
+    use crate::fs::{FsDirectory, FsFile, UnixPex};
     use crate::utils::fmt::fmt_time;
 
     use pretty_assertions::assert_eq;
@@ -380,8 +380,8 @@ mod tests {
         assert_eq!(explorer.wrkdir, PathBuf::from("/"));
         assert_eq!(explorer.stack_size, 16);
         assert_eq!(explorer.group_dirs, None);
-        assert_eq!(explorer.file_sorting, FileSorting::ByName);
-        assert_eq!(explorer.get_file_sorting(), FileSorting::ByName);
+        assert_eq!(explorer.file_sorting, FileSorting::Name);
+        assert_eq!(explorer.get_file_sorting(), FileSorting::Name);
     }
 
     #[test]
@@ -459,7 +459,7 @@ mod tests {
             make_fs_entry("Cargo.lock", false),
             make_fs_entry("codecov.yml", false),
         ]);
-        explorer.sort_by(FileSorting::ByName);
+        explorer.sort_by(FileSorting::Name);
         // First entry should be "Cargo.lock"
         assert_eq!(explorer.files.get(0).unwrap().get_name(), "Cargo.lock");
         // Last should be "src/"
@@ -475,7 +475,7 @@ mod tests {
         let entry2: FsEntry = make_fs_entry("CODE_OF_CONDUCT.md", false);
         // Create files (files are then sorted by name)
         explorer.set_files(vec![entry1, entry2]);
-        explorer.sort_by(FileSorting::ByModifyTime);
+        explorer.sort_by(FileSorting::ModifyTime);
         // First entry should be "CODE_OF_CONDUCT.md"
         assert_eq!(
             explorer.files.get(0).unwrap().get_name(),
@@ -494,7 +494,7 @@ mod tests {
         let entry2: FsEntry = make_fs_entry("CODE_OF_CONDUCT.md", false);
         // Create files (files are then sorted by name)
         explorer.set_files(vec![entry1, entry2]);
-        explorer.sort_by(FileSorting::ByCreationTime);
+        explorer.sort_by(FileSorting::CreationTime);
         // First entry should be "CODE_OF_CONDUCT.md"
         assert_eq!(
             explorer.files.get(0).unwrap().get_name(),
@@ -513,7 +513,7 @@ mod tests {
             make_fs_entry("src/", true),
             make_fs_entry_with_size("CONTRIBUTING.md", false, 256),
         ]);
-        explorer.sort_by(FileSorting::BySize);
+        explorer.sort_by(FileSorting::Size);
         // Directory has size 4096
         assert_eq!(explorer.files.get(0).unwrap().get_name(), "src/");
         assert_eq!(explorer.files.get(1).unwrap().get_name(), "README.md");
@@ -536,7 +536,7 @@ mod tests {
             make_fs_entry("Cargo.lock", false),
             make_fs_entry("codecov.yml", false),
         ]);
-        explorer.sort_by(FileSorting::ByName);
+        explorer.sort_by(FileSorting::Name);
         explorer.group_dirs_by(Some(GroupDirs::First));
         // First entry should be "docs"
         assert_eq!(explorer.files.get(0).unwrap().get_name(), "docs/");
@@ -563,7 +563,7 @@ mod tests {
             make_fs_entry("Cargo.lock", false),
             make_fs_entry("codecov.yml", false),
         ]);
-        explorer.sort_by(FileSorting::ByName);
+        explorer.sort_by(FileSorting::Name);
         explorer.group_dirs_by(Some(GroupDirs::Last));
         // Last entry should be "src"
         assert_eq!(explorer.files.get(8).unwrap().get_name(), "docs/");
@@ -586,12 +586,11 @@ mod tests {
             last_access_time: t,
             creation_time: t,
             size: 8192,
-            readonly: false,
             ftype: Some(String::from("txt")),
-            symlink: None,             // UNIX only
-            user: Some(0),             // UNIX only
-            group: Some(0),            // UNIX only
-            unix_pex: Some((6, 4, 4)), // UNIX only
+            symlink: None,  // UNIX only
+            user: Some(0),  // UNIX only
+            group: Some(0), // UNIX only
+            unix_pex: Some((UnixPex::from(6), UnixPex::from(4), UnixPex::from(4))), // UNIX only
         });
         #[cfg(target_family = "unix")]
         assert_eq!(
@@ -614,25 +613,25 @@ mod tests {
     #[test]
     fn test_fs_explorer_to_string_from_str_traits() {
         // File Sorting
-        assert_eq!(FileSorting::ByCreationTime.to_string(), "by_creation_time");
-        assert_eq!(FileSorting::ByModifyTime.to_string(), "by_mtime");
-        assert_eq!(FileSorting::ByName.to_string(), "by_name");
-        assert_eq!(FileSorting::BySize.to_string(), "by_size");
+        assert_eq!(FileSorting::CreationTime.to_string(), "by_creation_time");
+        assert_eq!(FileSorting::ModifyTime.to_string(), "by_mtime");
+        assert_eq!(FileSorting::Name.to_string(), "by_name");
+        assert_eq!(FileSorting::Size.to_string(), "by_size");
         assert_eq!(
             FileSorting::from_str("by_creation_time").ok().unwrap(),
-            FileSorting::ByCreationTime
+            FileSorting::CreationTime
         );
         assert_eq!(
             FileSorting::from_str("by_mtime").ok().unwrap(),
-            FileSorting::ByModifyTime
+            FileSorting::ModifyTime
         );
         assert_eq!(
             FileSorting::from_str("by_name").ok().unwrap(),
-            FileSorting::ByName
+            FileSorting::Name
         );
         assert_eq!(
             FileSorting::from_str("by_size").ok().unwrap(),
-            FileSorting::BySize
+            FileSorting::Size
         );
         assert!(FileSorting::from_str("omar").is_err());
         // Group dirs
@@ -670,12 +669,11 @@ mod tests {
                 last_access_time: t_now,
                 creation_time: t_now,
                 size: 64,
-                ftype: None, // File type
-                readonly: false,
-                symlink: None,             // UNIX only
-                user: Some(0),             // UNIX only
-                group: Some(0),            // UNIX only
-                unix_pex: Some((6, 4, 4)), // UNIX only
+                ftype: None,    // File type
+                symlink: None,  // UNIX only
+                user: Some(0),  // UNIX only
+                group: Some(0), // UNIX only
+                unix_pex: Some((UnixPex::from(6), UnixPex::from(4), UnixPex::from(4))), // UNIX only
             }),
             true => FsEntry::Directory(FsDirectory {
                 name: name.to_string(),
@@ -683,11 +681,10 @@ mod tests {
                 last_change_time: t_now,
                 last_access_time: t_now,
                 creation_time: t_now,
-                readonly: false,
-                symlink: None,             // UNIX only
-                user: Some(0),             // UNIX only
-                group: Some(0),            // UNIX only
-                unix_pex: Some((7, 5, 5)), // UNIX only
+                symlink: None,  // UNIX only
+                user: Some(0),  // UNIX only
+                group: Some(0), // UNIX only
+                unix_pex: Some((UnixPex::from(7), UnixPex::from(5), UnixPex::from(5))), // UNIX only
             }),
         }
     }
@@ -702,12 +699,11 @@ mod tests {
                 last_access_time: t_now,
                 creation_time: t_now,
                 size: size,
-                ftype: None, // File type
-                readonly: false,
-                symlink: None,             // UNIX only
-                user: Some(0),             // UNIX only
-                group: Some(0),            // UNIX only
-                unix_pex: Some((6, 4, 4)), // UNIX only
+                ftype: None,    // File type
+                symlink: None,  // UNIX only
+                user: Some(0),  // UNIX only
+                group: Some(0), // UNIX only
+                unix_pex: Some((UnixPex::from(6), UnixPex::from(4), UnixPex::from(4))), // UNIX only
             }),
             true => FsEntry::Directory(FsDirectory {
                 name: name.to_string(),
@@ -715,11 +711,10 @@ mod tests {
                 last_change_time: t_now,
                 last_access_time: t_now,
                 creation_time: t_now,
-                readonly: false,
-                symlink: None,             // UNIX only
-                user: Some(0),             // UNIX only
-                group: Some(0),            // UNIX only
-                unix_pex: Some((7, 5, 5)), // UNIX only
+                symlink: None,  // UNIX only
+                user: Some(0),  // UNIX only
+                group: Some(0), // UNIX only
+                unix_pex: Some((UnixPex::from(7), UnixPex::from(5), UnixPex::from(5))), // UNIX only
             }),
         }
     }

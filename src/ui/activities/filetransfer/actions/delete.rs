@@ -72,7 +72,7 @@ impl FileTransferActivity {
     }
 
     pub(crate) fn local_remove_file(&mut self, entry: &FsEntry) {
-        match self.host.remove(&entry) {
+        match self.host.remove(entry) {
             Ok(_) => {
                 // Log
                 self.log(
@@ -94,7 +94,7 @@ impl FileTransferActivity {
     }
 
     pub(crate) fn remote_remove_file(&mut self, entry: &FsEntry) {
-        match self.client.remove(&entry) {
+        match self.client.remove(entry) {
             Ok(_) => {
                 self.log(
                     LogLevel::Info,

@@ -115,7 +115,7 @@ impl BookmarksClient {
                     if let Err(e) = key_storage.set_key(service_id, key.as_str()) {
                         error!("Failed to set new key into storage: {}", e);
                         return Err(SerializerError::new_ex(
-                            SerializerErrorKind::IoError,
+                            SerializerErrorKind::Io,
                             format!("Could not write key to storage: {}", e),
                         ));
                     }
@@ -125,7 +125,7 @@ impl BookmarksClient {
                 _ => {
                     error!("Failed to get key from storage: {}", e);
                     return Err(SerializerError::new_ex(
-                        SerializerErrorKind::IoError,
+                        SerializerErrorKind::Io,
                         format!("Could not get key from storage: {}", e),
                     ));
                 }
@@ -328,7 +328,7 @@ impl BookmarksClient {
             Err(err) => {
                 error!("Failed to write bookmarks: {}", err);
                 Err(SerializerError::new_ex(
-                    SerializerErrorKind::IoError,
+                    SerializerErrorKind::Io,
                     err.to_string(),
                 ))
             }
@@ -358,7 +358,7 @@ impl BookmarksClient {
             Err(err) => {
                 error!("Failed to read bookmarks: {}", err);
                 Err(SerializerError::new_ex(
-                    SerializerErrorKind::IoError,
+                    SerializerErrorKind::Io,
                     err.to_string(),
                 ))
             }
@@ -407,7 +407,7 @@ impl BookmarksClient {
         match crypto::aes128_b64_decrypt(self.key.as_str(), secret) {
             Ok(txt) => Ok(txt),
             Err(err) => Err(SerializerError::new_ex(
-                SerializerErrorKind::SyntaxError,
+                SerializerErrorKind::Syntax,
                 err.to_string(),
             )),
         }

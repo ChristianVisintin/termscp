@@ -26,19 +26,21 @@
  * SOFTWARE.
  */
 use super::{FileTransfer, FileTransferError, FileTransferErrorType};
-use crate::fs::{FsDirectory, FsEntry, FsFile};
-use crate::utils::fmt::{fmt_time, shadow_password};
-use crate::utils::parser::{parse_datetime, parse_lstime};
+use crate::fs::{FsDirectory, FsEntry, FsFile, UnixPex};
+use crate::utils::fmt::shadow_password;
+use crate::utils::path;
 
 // Includes
-use ftp4::native_tls::TlsConnector;
-use ftp4::{types::FileType, FtpStream};
-use regex::Regex;
+use std::convert::TryFrom;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
-use std::{
-    io::{Read, Write},
-    ops::Range,
+use std::time::UNIX_EPOCH;
+use suppaftp::native_tls::TlsConnector;
+use suppaftp::{
+    list::{File, PosixPexQuery},
+    status::FILE_UNAVAILABLE,
+    types::{FileType, Response},
+    FtpError, FtpStream,
 };
 
 /// ## FtpFileTransfer
@@ -71,319 +73,103 @@ impl FtpFileTransfer {
         p.to_path_buf()
     }
 
-    /// ### parse_list_line
+    /// ### parse_list_lines
     ///
-    /// Parse a line of LIST command output and instantiates an FsEntry from it
-    fn parse_list_line(&mut self, path: &Path, line: &str) -> Result<FsEntry, ()> {
-        // Try to parse using UNIX syntax
-        match self.parse_unix_list_line(path, line) {
-            Ok(entry) => Ok(entry),
-            Err(_) => match self.parse_dos_list_line(path, line) {
-                // If UNIX parsing fails, try DOS
-                Ok(entry) => Ok(entry),
-                Err(_) => Err(()),
-            },
-        }
-    }
-
-    /// ### parse_unix_list_line
-    ///
-    /// Try to parse a "LIST" output command line in UNIX format.
-    /// Returns error if syntax is not UNIX compliant.
-    /// UNIX syntax has the following syntax:
-    /// {FILE_TYPE}{UNIX_PEX} {HARD_LINKS} {USER} {GROUP} {SIZE} {DATE} {FILENAME}
-    /// -rw-r--r--   1 cvisintin  staff   4968 27 Dic 10:46 CHANGELOG.md
-    fn parse_unix_list_line(&mut self, path: &Path, line: &str) -> Result<FsEntry, ()> {
-        // Prepare list regex
-        // NOTE: about this damn regex <https://stackoverflow.com/questions/32480890/is-there-a-regex-to-parse-the-values-from-an-ftp-directory-listing>
-        lazy_static! {
-            static ref LS_RE: Regex = Regex::new(r#"^([\-ld])([\-rwxs]{9})\s+(\d+)\s+(\w+)\s+(\w+)\s+(\d+)\s+(\w{3}\s+\d{1,2}\s+(?:\d{1,2}:\d{1,2}|\d{4}))\s+(.+)$"#).unwrap();
-        }
-        debug!("Parsing LIST (UNIX) line: '{}'", line);
-        // Apply regex to result
-        match LS_RE.captures(line) {
-            // String matches regex
-            Some(metadata) => {
-                // NOTE: metadata fmt: (regex, file_type, permissions, link_count, uid, gid, filesize, mtime, filename)
-                // Expected 7 + 1 (8) values: + 1 cause regex is repeated at 0
-                if metadata.len() < 8 {
-                    return Err(());
-                }
-                // Collect metadata
-                // Get if is directory and if is symlink
-                let (mut is_dir, is_symlink): (bool, bool) = match metadata.get(1).unwrap().as_str()
-                {
-                    "-" => (false, false),
-                    "l" => (false, true),
-                    "d" => (true, false),
-                    _ => return Err(()), // Ignore special files
-                };
-                // Check string length (unix pex)
-                if metadata.get(2).unwrap().as_str().len() < 9 {
-                    return Err(());
-                }
-
-                let pex = |range: Range<usize>| {
-                    let mut count: u8 = 0;
-                    for (i, c) in metadata.get(2).unwrap().as_str()[range].chars().enumerate() {
-                        match c {
-                            '-' => {}
-                            _ => {
-                                count += match i {
-                                    0 => 4,
-                                    1 => 2,
-                                    2 => 1,
-                                    _ => 0,
-                                }
-                            }
-                        }
-                    }
-                    count
-                };
-
-                // Get unix pex
-                let unix_pex = (pex(0..3), pex(3..6), pex(6..9));
-
-                // Parse mtime and convert to SystemTime
-                let mtime: SystemTime = match parse_lstime(
-                    metadata.get(7).unwrap().as_str(),
-                    "%b %d %Y",
-                    "%b %d %H:%M",
-                ) {
-                    Ok(t) => t,
-                    Err(_) => SystemTime::UNIX_EPOCH,
-                };
-                // Get uid
-                let uid: Option<u32> = match metadata.get(4).unwrap().as_str().parse::<u32>() {
-                    Ok(uid) => Some(uid),
-                    Err(_) => None,
-                };
-                // Get gid
-                let gid: Option<u32> = match metadata.get(5).unwrap().as_str().parse::<u32>() {
-                    Ok(gid) => Some(gid),
-                    Err(_) => None,
-                };
-                // Get filesize
-                let filesize: usize = metadata
-                    .get(6)
-                    .unwrap()
-                    .as_str()
-                    .parse::<usize>()
-                    .unwrap_or(0);
-                // Split filename if required
-                let (file_name, symlink_path): (String, Option<PathBuf>) = match is_symlink {
-                    true => self.get_name_and_link(metadata.get(8).unwrap().as_str()),
-                    false => (String::from(metadata.get(8).unwrap().as_str()), None),
-                };
-                // Check if file_name is '.' or '..'
-                if file_name.as_str() == "." || file_name.as_str() == ".." {
-                    debug!("File name is {}; ignoring entry", file_name);
-                    return Err(());
-                }
-                // Get symlink
-                let symlink: Option<Box<FsEntry>> = symlink_path.map(|p| {
-                    Box::new(match p.to_string_lossy().ends_with('/') {
-                        true => {
-                            // NOTE: is_dir becomes true
-                            is_dir = true;
-                            FsEntry::Directory(FsDirectory {
-                                name: p
-                                    .file_name()
-                                    .unwrap_or(&std::ffi::OsStr::new(""))
-                                    .to_string_lossy()
-                                    .to_string(),
-                                abs_path: p.clone(),
-                                last_change_time: mtime,
-                                last_access_time: mtime,
-                                creation_time: mtime,
-                                readonly: false,
-                                symlink: None,
-                                user: uid,
-                                group: gid,
-                                unix_pex: Some(unix_pex),
-                            })
-                        }
-                        false => FsEntry::File(FsFile {
-                            name: p
-                                .file_name()
-                                .unwrap_or(&std::ffi::OsStr::new(""))
-                                .to_string_lossy()
-                                .to_string(),
-                            abs_path: p.clone(),
-                            last_change_time: mtime,
-                            last_access_time: mtime,
-                            creation_time: mtime,
-                            readonly: false,
-                            symlink: None,
-                            size: filesize,
-                            ftype: p.extension().map(|s| String::from(s.to_string_lossy())),
-                            user: uid,
-                            group: gid,
-                            unix_pex: Some(unix_pex),
-                        }),
-                    })
-                });
-                let mut abs_path: PathBuf = PathBuf::from(path);
-                abs_path.push(file_name.as_str());
-                let abs_path: PathBuf = Self::resolve(abs_path.as_path());
-                // get extension
-                let extension: Option<String> = abs_path
-                    .as_path()
-                    .extension()
-                    .map(|s| String::from(s.to_string_lossy()));
-                // Return
-                debug!("Follows LIST line '{}' attributes", line);
-                debug!("Is directory? {}", is_dir);
-                debug!("Is symlink? {}", is_symlink);
-                debug!("name: {}", file_name);
-                debug!("abs_path: {}", abs_path.display());
-                debug!("last_change_time: {}", fmt_time(mtime, "%Y-%m-%dT%H:%M:%S"));
-                debug!("last_access_time: {}", fmt_time(mtime, "%Y-%m-%dT%H:%M:%S"));
-                debug!("creation_time: {}", fmt_time(mtime, "%Y-%m-%dT%H:%M:%S"));
-                debug!("symlink: {:?}", symlink);
-                debug!("user: {:?}", uid);
-                debug!("group: {:?}", gid);
-                debug!("unix_pex: {:?}", unix_pex);
-                debug!("---------------------------------------");
-                // Push to entries
-                Ok(match is_dir {
+    /// Parse all lines of LIST command output and instantiates a vector of FsEntry from it.
+    /// This function also converts from `suppaftp::list::File` to `FsEntry`
+    fn parse_list_lines(&mut self, path: &Path, lines: Vec<String>) -> Vec<FsEntry> {
+        // Iter and collect
+        lines
+            .into_iter()
+            .map(File::try_from) // Try to convert to file
+            .flatten() // Remove errors
+            .map(|x| {
+                let mut abs_path: PathBuf = path.to_path_buf();
+                abs_path.push(x.name());
+                match x.is_directory() {
                     true => FsEntry::Directory(FsDirectory {
-                        name: file_name,
+                        name: x.name().to_string(),
                         abs_path,
-                        last_change_time: mtime,
-                        last_access_time: mtime,
-                        creation_time: mtime,
-                        readonly: false,
-                        symlink,
-                        user: uid,
-                        group: gid,
-                        unix_pex: Some(unix_pex),
+                        last_access_time: x.modified(),
+                        last_change_time: x.modified(),
+                        creation_time: x.modified(),
+                        symlink: None,
+                        user: x.uid(),
+                        group: x.gid(),
+                        unix_pex: Some(Self::query_unix_pex(&x)),
                     }),
                     false => FsEntry::File(FsFile {
-                        name: file_name,
+                        name: x.name().to_string(),
+                        size: x.size(),
+                        ftype: abs_path
+                            .extension()
+                            .map(|ext| String::from(ext.to_str().unwrap_or(""))),
+                        last_access_time: x.modified(),
+                        last_change_time: x.modified(),
+                        creation_time: x.modified(),
+                        user: x.uid(),
+                        group: x.gid(),
+                        symlink: Self::get_symlink_entry(path, x.symlink()),
                         abs_path,
-                        last_change_time: mtime,
-                        last_access_time: mtime,
-                        creation_time: mtime,
-                        size: filesize,
-                        ftype: extension,
-                        readonly: false,
-                        symlink,
-                        user: uid,
-                        group: gid,
-                        unix_pex: Some(unix_pex),
+                        unix_pex: Some(Self::query_unix_pex(&x)),
                     }),
-                })
-            }
-            None => Err(()),
-        }
-    }
-
-    /// ### parse_dos_list_line
-    ///
-    /// Try to parse a "LIST" output command line in DOS format.
-    /// Returns error if syntax is not DOS compliant.
-    /// DOS syntax has the following syntax:
-    /// {DATE} {TIME} {<DIR> | SIZE} {FILENAME}
-    /// 10-19-20  03:19PM <DIR> pub
-    /// 04-08-14  03:09PM 403   readme.txt
-    fn parse_dos_list_line(&self, path: &Path, line: &str) -> Result<FsEntry, ()> {
-        // Prepare list regex
-        // NOTE: you won't find this regex on the internet. It seems I'm the only person in the world who needs this
-        lazy_static! {
-            static ref DOS_RE: Regex = Regex::new(
-                r#"^(\d{2}\-\d{2}\-\d{2}\s+\d{2}:\d{2}\s*[AP]M)\s+(<DIR>)?([\d,]*)\s+(.+)$"#
-            )
-            .unwrap();
-        }
-        debug!("Parsing LIST (DOS) line: '{}'", line);
-        // Apply regex to result
-        match DOS_RE.captures(line) {
-            // String matches regex
-            Some(metadata) => {
-                // NOTE: metadata fmt: (regex, date_time, is_dir?, file_size?, file_name)
-                // Expected 4 + 1 (5) values: + 1 cause regex is repeated at 0
-                if metadata.len() < 5 {
-                    return Err(());
                 }
-                // Parse date time
-                let time: SystemTime =
-                    match parse_datetime(metadata.get(1).unwrap().as_str(), "%d-%m-%y %I:%M%p") {
-                        Ok(t) => t,
-                        Err(_) => SystemTime::UNIX_EPOCH, // Don't return error
-                    };
-                // Get if is a directory
-                let is_dir: bool = metadata.get(2).is_some();
-                // Get file size
-                let file_size: usize = match is_dir {
-                    true => 0, // If is directory, filesize is 0
-                    false => match metadata.get(3) {
-                        // If is file, parse arg 3
-                        Some(val) => val.as_str().parse::<usize>().unwrap_or(0),
-                        None => 0, // Should not happen
-                    },
-                };
-                // Get file name
-                let file_name: String = String::from(metadata.get(4).unwrap().as_str());
-                // Get absolute path
-                let mut abs_path: PathBuf = PathBuf::from(path);
-                abs_path.push(file_name.as_str());
-                let abs_path: PathBuf = Self::resolve(abs_path.as_path());
-                // Get extension
-                let extension: Option<String> = abs_path
-                    .as_path()
-                    .extension()
-                    .map(|s| String::from(s.to_string_lossy()));
-                debug!("Follows LIST line '{}' attributes", line);
-                debug!("Is directory? {}", is_dir);
-                debug!("name: {}", file_name);
-                debug!("abs_path: {}", abs_path.display());
-                debug!("last_change_time: {}", fmt_time(time, "%Y-%m-%dT%H:%M:%S"));
-                debug!("last_access_time: {}", fmt_time(time, "%Y-%m-%dT%H:%M:%S"));
-                debug!("creation_time: {}", fmt_time(time, "%Y-%m-%dT%H:%M:%S"));
-                debug!("---------------------------------------");
-                // Return entry
-                Ok(match is_dir {
-                    true => FsEntry::Directory(FsDirectory {
-                        name: file_name,
-                        abs_path,
-                        last_change_time: time,
-                        last_access_time: time,
-                        creation_time: time,
-                        readonly: false,
-                        symlink: None,
-                        user: None,
-                        group: None,
-                        unix_pex: None,
-                    }),
-                    false => FsEntry::File(FsFile {
-                        name: file_name,
-                        abs_path,
-                        last_change_time: time,
-                        last_access_time: time,
-                        creation_time: time,
-                        size: file_size,
-                        ftype: extension,
-                        readonly: false,
-                        symlink: None,
-                        user: None,
-                        group: None,
-                        unix_pex: None,
-                    }),
-                })
+            })
+            .collect()
+    }
+
+    /// ### get_symlink_entry
+    ///
+    /// Get FsEntry from symlink
+    fn get_symlink_entry(wrkdir: &Path, link: Option<&Path>) -> Option<Box<FsEntry>> {
+        match link {
+            None => None,
+            Some(p) => {
+                // Make abs path
+                let abs_path: PathBuf = path::absolutize(wrkdir, p);
+                Some(Box::new(FsEntry::File(FsFile {
+                    name: p
+                        .file_name()
+                        .map(|x| x.to_str().unwrap_or("").to_string())
+                        .unwrap_or_default(),
+                    ftype: abs_path
+                        .extension()
+                        .map(|ext| String::from(ext.to_str().unwrap_or(""))),
+                    size: 0,
+                    last_access_time: UNIX_EPOCH,
+                    last_change_time: UNIX_EPOCH,
+                    creation_time: UNIX_EPOCH,
+                    user: None,
+                    group: None,
+                    symlink: None,
+                    unix_pex: None,
+                    abs_path,
+                })))
             }
-            None => Err(()), // Invalid syntax
         }
     }
 
-    /// ### get_name_and_link
+    /// ### query_unix_pex
     ///
-    /// Returns from a `ls -l` command output file name token, the name of the file and the symbolic link (if there is any)
-    fn get_name_and_link(&self, token: &str) -> (String, Option<PathBuf>) {
-        let tokens: Vec<&str> = token.split(" -> ").collect();
-        let filename: String = String::from(*tokens.get(0).unwrap());
-        let symlink: Option<PathBuf> = tokens.get(1).map(PathBuf::from);
-        (filename, symlink)
+    /// Returns unix pex in tuple of values
+    fn query_unix_pex(f: &File) -> (UnixPex, UnixPex, UnixPex) {
+        (
+            UnixPex::new(
+                f.can_read(PosixPexQuery::Owner),
+                f.can_write(PosixPexQuery::Owner),
+                f.can_execute(PosixPexQuery::Owner),
+            ),
+            UnixPex::new(
+                f.can_read(PosixPexQuery::Group),
+                f.can_write(PosixPexQuery::Group),
+                f.can_execute(PosixPexQuery::Group),
+            ),
+            UnixPex::new(
+                f.can_read(PosixPexQuery::Others),
+                f.can_write(PosixPexQuery::Others),
+                f.can_execute(PosixPexQuery::Others),
+            ),
+        )
     }
 }
 
@@ -473,7 +259,12 @@ impl FileTransfer for FtpFileTransfer {
         self.stream = Some(stream);
         info!("Connection successfully established");
         // Return OK
-        Ok(self.stream.as_ref().unwrap().get_welcome_msg())
+        Ok(self
+            .stream
+            .as_ref()
+            .unwrap()
+            .get_welcome_msg()
+            .map(|x| x.to_string()))
     }
 
     /// ### disconnect
@@ -567,22 +358,10 @@ impl FileTransfer for FtpFileTransfer {
         info!("LIST dir {}", dir.display());
         match &mut self.stream {
             Some(stream) => match stream.list(Some(&dir.as_path().to_string_lossy())) {
-                Ok(entries) => {
-                    debug!("Got {} lines in LIST result", entries.len());
-                    // Prepare result
-                    let mut result: Vec<FsEntry> = Vec::with_capacity(entries.len());
+                Ok(lines) => {
+                    debug!("Got {} lines in LIST result", lines.len());
                     // Iterate over entries
-                    for entry in entries.iter() {
-                        if let Ok(file) = self.parse_list_line(dir.as_path(), entry) {
-                            result.push(file);
-                        }
-                    }
-                    debug!(
-                        "{} out of {} were valid entries",
-                        result.len(),
-                        entries.len()
-                    );
-                    Ok(result)
+                    Ok(self.parse_list_lines(path, lines))
                 }
                 Err(err) => Err(FileTransferError::new_ex(
                     FileTransferErrorType::DirStatFailed,
@@ -597,13 +376,23 @@ impl FileTransfer for FtpFileTransfer {
 
     /// ### mkdir
     ///
-    /// Make directory
+    /// In case the directory already exists, it must return an Error of kind `FileTransferErrorType::DirectoryAlreadyExists`
     fn mkdir(&mut self, dir: &Path) -> Result<(), FileTransferError> {
         let dir: PathBuf = Self::resolve(dir);
         info!("MKDIR {}", dir.display());
         match &mut self.stream {
             Some(stream) => match stream.mkdir(&dir.as_path().to_string_lossy()) {
                 Ok(_) => Ok(()),
+                Err(FtpError::UnexpectedResponse(Response {
+                    // Directory already exists
+                    code: FILE_UNAVAILABLE,
+                    body: _,
+                })) => {
+                    error!("Directory {} already exists", dir.display());
+                    Err(FileTransferError::new(
+                        FileTransferErrorType::DirectoryAlreadyExists,
+                    ))
+                }
                 Err(err) => Err(FileTransferError::new_ex(
                     FileTransferErrorType::FileCreateDenied,
                     err.to_string(),
@@ -659,7 +448,7 @@ impl FileTransfer for FtpFileTransfer {
                         // Remove recursively files
                         debug!("Removing {} entries from directory...", files.len());
                         for file in files.iter() {
-                            if let Err(err) = self.remove(&file) {
+                            if let Err(err) = self.remove(file) {
                                 return Err(FileTransferError::new_ex(
                                     FileTransferErrorType::PexError,
                                     err.to_string(),
@@ -791,7 +580,8 @@ impl FileTransfer for FtpFileTransfer {
     fn recv_file(&mut self, file: &FsFile) -> Result<Box<dyn Read>, FileTransferError> {
         info!("Receiving file {}", file.abs_path.display());
         match &mut self.stream {
-            Some(stream) => match stream.get(&file.abs_path.as_path().to_string_lossy()) {
+            Some(stream) => match stream.retr_as_stream(&file.abs_path.as_path().to_string_lossy())
+            {
                 Ok(reader) => Ok(Box::new(reader)), // NOTE: don't use BufReader here, since already returned by the library
                 Err(err) => Err(FileTransferError::new_ex(
                     FileTransferErrorType::NoSuchFileOrDirectory,
@@ -837,7 +627,7 @@ impl FileTransfer for FtpFileTransfer {
     fn on_recv(&mut self, readable: Box<dyn Read>) -> Result<(), FileTransferError> {
         info!("Finalizing get");
         match &mut self.stream {
-            Some(stream) => match stream.finalize_get(readable) {
+            Some(stream) => match stream.finalize_retr_stream(readable) {
                 Ok(_) => Ok(()),
                 Err(err) => Err(FileTransferError::new_ex(
                     FileTransferErrorType::ProtocolError,
@@ -856,7 +646,6 @@ mod tests {
 
     use super::*;
     use crate::utils::file::open_file;
-    use crate::utils::fmt::fmt_time;
     #[cfg(feature = "with-containers")]
     use crate::utils::test_helpers::write_file;
     use crate::utils::test_helpers::{create_sample_file_entry, make_fsentry};
@@ -902,6 +691,14 @@ mod tests {
         assert_eq!(ftp.list_dir(&Path::new("/")).unwrap().len(), 0);
         // Make directory
         assert!(ftp.mkdir(PathBuf::from("/home").as_path()).is_ok());
+        // Remake directory (should report already exists)
+        assert_eq!(
+            ftp.mkdir(PathBuf::from("/home").as_path())
+                .err()
+                .unwrap()
+                .kind(),
+            FileTransferErrorType::DirectoryAlreadyExists
+        );
         // Make directory (err)
         assert!(ftp.mkdir(PathBuf::from("/root/pommlar").as_path()).is_err());
         // Change directory
@@ -957,16 +754,15 @@ mod tests {
         let dummy: FsEntry = FsEntry::File(FsFile {
             name: String::from("cucumber.txt"),
             abs_path: PathBuf::from("/cucumber.txt"),
-            last_change_time: SystemTime::UNIX_EPOCH,
-            last_access_time: SystemTime::UNIX_EPOCH,
-            creation_time: SystemTime::UNIX_EPOCH,
+            last_change_time: UNIX_EPOCH,
+            last_access_time: UNIX_EPOCH,
+            creation_time: UNIX_EPOCH,
             size: 0,
             ftype: Some(String::from("txt")), // File type
-            readonly: true,
-            symlink: None,             // UNIX only
-            user: Some(0),             // UNIX only
-            group: Some(0),            // UNIX only
-            unix_pex: Some((6, 4, 4)), // UNIX only
+            symlink: None,                    // UNIX only
+            user: Some(0),                    // UNIX only
+            group: Some(0),                   // UNIX only
+            unix_pex: Some((UnixPex::from(6), UnixPex::from(4), UnixPex::from(4))), // UNIX only
         });
         assert!(ftp
             .rename(&dummy, PathBuf::from("/a/b/c").as_path())
@@ -1051,12 +847,13 @@ mod tests {
         let mut ftp: FtpFileTransfer = FtpFileTransfer::new(false);
         // Simple file
         let file: FsFile = ftp
-            .parse_list_line(
+            .parse_list_lines(
                 PathBuf::from("/tmp").as_path(),
-                "-rw-rw-r-- 1 root  dialout  8192 Nov 5 2018 omar.txt",
+                vec!["-rw-rw-r-- 1 root  dialout  8192 Nov 5 2018 omar.txt".to_string()],
             )
-            .ok()
+            .get(0)
             .unwrap()
+            .clone()
             .unwrap_file();
         assert_eq!(file.abs_path, PathBuf::from("/tmp/omar.txt"));
         assert_eq!(file.name, String::from("omar.txt"));
@@ -1064,183 +861,28 @@ mod tests {
         assert!(file.symlink.is_none());
         assert_eq!(file.user, None);
         assert_eq!(file.group, None);
-        assert_eq!(file.unix_pex.unwrap(), (6, 6, 4));
+        assert_eq!(
+            file.unix_pex.unwrap(),
+            (UnixPex::from(6), UnixPex::from(6), UnixPex::from(4))
+        );
         assert_eq!(
             file.last_access_time
-                .duration_since(SystemTime::UNIX_EPOCH)
+                .duration_since(UNIX_EPOCH)
                 .ok()
                 .unwrap(),
             Duration::from_secs(1541376000)
         );
         assert_eq!(
             file.last_change_time
-                .duration_since(SystemTime::UNIX_EPOCH)
+                .duration_since(UNIX_EPOCH)
                 .ok()
                 .unwrap(),
             Duration::from_secs(1541376000)
         );
         assert_eq!(
-            file.creation_time
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .ok()
-                .unwrap(),
+            file.creation_time.duration_since(UNIX_EPOCH).ok().unwrap(),
             Duration::from_secs(1541376000)
         );
-        // Simple file with number as gid, uid
-        let file: FsFile = ftp
-            .parse_list_line(
-                PathBuf::from("/tmp").as_path(),
-                "-rwxr-xr-x 1 0  9  4096 Nov 5 16:32 omar.txt",
-            )
-            .ok()
-            .unwrap()
-            .unwrap_file();
-        assert_eq!(file.abs_path, PathBuf::from("/tmp/omar.txt"));
-        assert_eq!(file.name, String::from("omar.txt"));
-        assert_eq!(file.size, 4096);
-        assert!(file.symlink.is_none());
-        assert_eq!(file.user, Some(0));
-        assert_eq!(file.group, Some(9));
-        assert_eq!(file.unix_pex.unwrap(), (7, 5, 5));
-        assert_eq!(
-            fmt_time(file.last_access_time, "%m %d %M").as_str(),
-            "11 05 32"
-        );
-        assert_eq!(
-            fmt_time(file.last_change_time, "%m %d %M").as_str(),
-            "11 05 32"
-        );
-        assert_eq!(
-            fmt_time(file.creation_time, "%m %d %M").as_str(),
-            "11 05 32"
-        );
-        // Directory
-        let dir: FsDirectory = ftp
-            .parse_list_line(
-                PathBuf::from("/tmp").as_path(),
-                "drwxrwxr-x 1 0  9  4096 Nov 5 2018 docs",
-            )
-            .ok()
-            .unwrap()
-            .unwrap_dir();
-        assert_eq!(dir.abs_path, PathBuf::from("/tmp/docs"));
-        assert_eq!(dir.name, String::from("docs"));
-        assert!(dir.symlink.is_none());
-        assert_eq!(dir.user, Some(0));
-        assert_eq!(dir.group, Some(9));
-        assert_eq!(dir.unix_pex.unwrap(), (7, 7, 5));
-        assert_eq!(
-            dir.last_access_time
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .ok()
-                .unwrap(),
-            Duration::from_secs(1541376000)
-        );
-        assert_eq!(
-            dir.last_change_time
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .ok()
-                .unwrap(),
-            Duration::from_secs(1541376000)
-        );
-        assert_eq!(
-            dir.creation_time
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .ok()
-                .unwrap(),
-            Duration::from_secs(1541376000)
-        );
-        assert_eq!(dir.readonly, false);
-        // Error
-        assert!(ftp
-            .parse_list_line(
-                PathBuf::from("/").as_path(),
-                "drwxrwxr-x 1 0  9  Nov 5 2018 docs"
-            )
-            .is_err());
-    }
-
-    #[test]
-    fn test_filetransfer_ftp_parse_list_line_dos() {
-        let mut ftp: FtpFileTransfer = FtpFileTransfer::new(false);
-        // Simple file
-        let file: FsFile = ftp
-            .parse_list_line(
-                PathBuf::from("/tmp").as_path(),
-                "04-08-14  03:09PM  8192 omar.txt",
-            )
-            .ok()
-            .unwrap()
-            .unwrap_file();
-        assert_eq!(file.abs_path, PathBuf::from("/tmp/omar.txt"));
-        assert_eq!(file.name, String::from("omar.txt"));
-        assert_eq!(file.size, 8192);
-        assert!(file.symlink.is_none());
-        assert_eq!(file.user, None);
-        assert_eq!(file.group, None);
-        assert_eq!(file.unix_pex, None);
-        assert_eq!(
-            file.last_access_time
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .ok()
-                .unwrap(),
-            Duration::from_secs(1407164940)
-        );
-        assert_eq!(
-            file.last_change_time
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .ok()
-                .unwrap(),
-            Duration::from_secs(1407164940)
-        );
-        assert_eq!(
-            file.creation_time
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .ok()
-                .unwrap(),
-            Duration::from_secs(1407164940)
-        );
-        // Directory
-        let dir: FsDirectory = ftp
-            .parse_list_line(
-                PathBuf::from("/tmp").as_path(),
-                "04-08-14  03:09PM  <DIR> docs",
-            )
-            .ok()
-            .unwrap()
-            .unwrap_dir();
-        assert_eq!(dir.abs_path, PathBuf::from("/tmp/docs"));
-        assert_eq!(dir.name, String::from("docs"));
-        assert!(dir.symlink.is_none());
-        assert_eq!(dir.user, None);
-        assert_eq!(dir.group, None);
-        assert_eq!(dir.unix_pex, None);
-        assert_eq!(
-            dir.last_access_time
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .ok()
-                .unwrap(),
-            Duration::from_secs(1407164940)
-        );
-        assert_eq!(
-            dir.last_change_time
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .ok()
-                .unwrap(),
-            Duration::from_secs(1407164940)
-        );
-        assert_eq!(
-            dir.creation_time
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .ok()
-                .unwrap(),
-            Duration::from_secs(1407164940)
-        );
-        assert_eq!(dir.readonly, false);
-        // Error
-        assert!(ftp
-            .parse_list_line(PathBuf::from("/").as_path(), "04-08-14  omar.txt")
-            .is_err());
     }
 
     #[test]
@@ -1266,33 +908,19 @@ mod tests {
     }
 
     #[test]
-    fn test_filetransfer_ftp_get_name_and_link() {
-        let client: FtpFileTransfer = FtpFileTransfer::new(false);
-        assert_eq!(
-            client.get_name_and_link("Cargo.toml"),
-            (String::from("Cargo.toml"), None)
-        );
-        assert_eq!(
-            client.get_name_and_link("Cargo -> Cargo.toml"),
-            (String::from("Cargo"), Some(PathBuf::from("Cargo.toml")))
-        );
-    }
-
-    #[test]
     fn test_filetransfer_ftp_uninitialized() {
         let file: FsFile = FsFile {
             name: String::from("omar.txt"),
             abs_path: PathBuf::from("/omar.txt"),
-            last_change_time: SystemTime::UNIX_EPOCH,
-            last_access_time: SystemTime::UNIX_EPOCH,
-            creation_time: SystemTime::UNIX_EPOCH,
+            last_change_time: UNIX_EPOCH,
+            last_access_time: UNIX_EPOCH,
+            creation_time: UNIX_EPOCH,
             size: 0,
             ftype: Some(String::from("txt")), // File type
-            readonly: true,
-            symlink: None,             // UNIX only
-            user: Some(0),             // UNIX only
-            group: Some(0),            // UNIX only
-            unix_pex: Some((6, 4, 4)), // UNIX only
+            symlink: None,                    // UNIX only
+            user: Some(0),                    // UNIX only
+            group: Some(0),                   // UNIX only
+            unix_pex: Some((UnixPex::from(6), UnixPex::from(4), UnixPex::from(4))), // UNIX only
         };
         let mut ftp: FtpFileTransfer = FtpFileTransfer::new(false);
         assert!(ftp.change_dir(Path::new("/tmp")).is_err());

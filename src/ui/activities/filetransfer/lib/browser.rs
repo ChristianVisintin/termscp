@@ -142,7 +142,7 @@ impl Browser {
         let mut builder: FileExplorerBuilder = FileExplorerBuilder::new();
         // Set common keys
         builder
-            .with_file_sorting(FileSorting::ByName)
+            .with_file_sorting(FileSorting::Name)
             .with_stack_size(16)
             .with_group_dirs(cli.get_group_dirs())
             .with_hidden_files(cli.get_show_hidden_files());
@@ -154,7 +154,7 @@ impl Browser {
     /// Build explorer reading from `ConfigClient`, for found result (has some differences)
     fn build_found_explorer() -> FileExplorer {
         FileExplorerBuilder::new()
-            .with_file_sorting(FileSorting::ByName)
+            .with_file_sorting(FileSorting::Name)
             .with_group_dirs(Some(GroupDirs::First))
             .with_hidden_files(true)
             .with_stack_size(0)

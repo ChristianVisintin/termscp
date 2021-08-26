@@ -34,14 +34,14 @@ use super::*;
 pub use setup::*;
 pub use ssh_keys::*;
 pub use theme::*;
-// Locals
-use crate::ui::components::msgbox::{MsgBox, MsgBoxPropsBuilder};
 // Ext
-use tuirealm::components::{
+use tui_realm_stdlib::{
+    list::{List, ListPropsBuilder},
+    paragraph::{Paragraph, ParagraphPropsBuilder},
     radio::{Radio, RadioPropsBuilder},
-    scrolltable::{ScrollTablePropsBuilder, Scrolltable},
+    span::{Span, SpanPropsBuilder},
 };
-use tuirealm::props::{PropsBuilder, TableBuilder, TextSpan, TextSpanBuilder};
+use tuirealm::props::{Alignment, PropsBuilder, TableBuilder, TextSpan};
 use tuirealm::tui::{
     style::Color,
     widgets::{BorderType, Borders},
@@ -79,12 +79,13 @@ impl SetupActivity {
         // Mount
         self.view.mount(
             super::COMPONENT_TEXT_ERROR,
-            Box::new(MsgBox::new(
-                MsgBoxPropsBuilder::default()
+            Box::new(Paragraph::new(
+                ParagraphPropsBuilder::default()
                     .with_foreground(Color::Red)
                     .bold()
                     .with_borders(Borders::ALL, BorderType::Rounded, Color::Red)
-                    .with_texts(None, vec![TextSpan::from(text)])
+                    .with_texts(vec![TextSpan::from(text)])
+                    .with_text_alignment(Alignment::Center)
                     .build(),
             )),
         );
@@ -110,16 +111,16 @@ impl SetupActivity {
                     .with_color(Color::LightRed)
                     .with_inverted_color(Color::Black)
                     .with_borders(Borders::ALL, BorderType::Rounded, Color::LightRed)
-                    .with_options(
-                        Some(String::from(
-                            "There are unsaved changes! Save changes before leaving?",
-                        )),
-                        vec![
-                            String::from("Save"),
-                            String::from("Don't save"),
-                            String::from("Cancel"),
-                        ],
+                    .with_title(
+                        "There are unsaved changes! Save changes before leaving?",
+                        Alignment::Center,
                     )
+                    .with_options(&[
+                        String::from("Save"),
+                        String::from("Don't save"),
+                        String::from("Cancel"),
+                    ])
+                    .rewind(true)
                     .build(),
             )),
         );
@@ -145,10 +146,9 @@ impl SetupActivity {
                     .with_color(Color::LightYellow)
                     .with_inverted_color(Color::Black)
                     .with_borders(Borders::ALL, BorderType::Rounded, Color::LightYellow)
-                    .with_options(
-                        Some(String::from("Save changes?")),
-                        vec![String::from("Yes"), String::from("No")],
-                    )
+                    .with_title("Save changes?", Alignment::Center)
+                    .with_options(&[String::from("Yes"), String::from("No")])
+                    .rewind(true)
                     .build(),
             )),
         );
@@ -163,91 +163,82 @@ impl SetupActivity {
         self.view.umount(super::COMPONENT_RADIO_SAVE);
     }
 
+    pub(self) fn mount_header_tab(&mut self, idx: usize) {
+        self.view.mount(
+            super::COMPONENT_RADIO_TAB,
+            Box::new(Radio::new(
+                RadioPropsBuilder::default()
+                    .with_color(Color::LightYellow)
+                    .with_inverted_color(Color::Black)
+                    .with_borders(Borders::BOTTOM, BorderType::Thick, Color::White)
+                    .with_options(&[
+                        String::from("User Interface"),
+                        String::from("SSH Keys"),
+                        String::from("Theme"),
+                    ])
+                    .with_value(idx)
+                    .rewind(true)
+                    .build(),
+            )),
+        );
+    }
+
+    pub(self) fn mount_footer(&mut self) {
+        self.view.mount(
+            super::COMPONENT_TEXT_FOOTER,
+            Box::new(Span::new(
+                SpanPropsBuilder::default()
+                    .with_spans(vec![
+                        TextSpan::new("Press ").bold(),
+                        TextSpan::new("<CTRL+H>").bold().fg(Color::Cyan),
+                        TextSpan::new(" to show keybindings").bold(),
+                    ])
+                    .build(),
+            )),
+        );
+    }
+
     /// ### mount_help
     ///
     /// Mount help
     pub(super) fn mount_help(&mut self) {
         self.view.mount(
             super::COMPONENT_TEXT_HELP,
-            Box::new(Scrolltable::new(
-                ScrollTablePropsBuilder::default()
+            Box::new(List::new(
+                ListPropsBuilder::default()
                     .with_borders(Borders::ALL, BorderType::Rounded, Color::White)
                     .with_highlighted_str(Some("?"))
                     .with_max_scroll_step(8)
                     .bold()
-                    .with_table(
-                        Some(String::from("Help")),
+                    .with_title("Help", Alignment::Center)
+                    .scrollable(true)
+                    .with_rows(
                         TableBuilder::default()
-                            .add_col(
-                                TextSpanBuilder::new("<ESC>")
-                                    .bold()
-                                    .with_foreground(Color::Cyan)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<ESC>").bold().fg(Color::Cyan))
                             .add_col(TextSpan::from("           Exit setup"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<TAB>")
-                                    .bold()
-                                    .with_foreground(Color::Cyan)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<TAB>").bold().fg(Color::Cyan))
                             .add_col(TextSpan::from("           Change setup page"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<RIGHT/LEFT>")
-                                    .bold()
-                                    .with_foreground(Color::Cyan)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<RIGHT/LEFT>").bold().fg(Color::Cyan))
                             .add_col(TextSpan::from("    Change cursor"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<UP/DOWN>")
-                                    .bold()
-                                    .with_foreground(Color::Cyan)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<UP/DOWN>").bold().fg(Color::Cyan))
                             .add_col(TextSpan::from("       Change input field"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<ENTER>")
-                                    .bold()
-                                    .with_foreground(Color::Cyan)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<ENTER>").bold().fg(Color::Cyan))
                             .add_col(TextSpan::from("         Select / Dismiss popup"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<DEL|E>")
-                                    .bold()
-                                    .with_foreground(Color::Cyan)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<DEL|E>").bold().fg(Color::Cyan))
                             .add_col(TextSpan::from("         Delete SSH key"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<CTRL+N>")
-                                    .bold()
-                                    .with_foreground(Color::Cyan)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<CTRL+N>").bold().fg(Color::Cyan))
                             .add_col(TextSpan::from("        New SSH key"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<CTRL+R>")
-                                    .bold()
-                                    .with_foreground(Color::Cyan)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<CTRL+R>").bold().fg(Color::Cyan))
                             .add_col(TextSpan::from("        Revert changes"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<CTRL+S>")
-                                    .bold()
-                                    .with_foreground(Color::Cyan)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<CTRL+S>").bold().fg(Color::Cyan))
                             .add_col(TextSpan::from("        Save configuration"))
                             .build(),
                     )

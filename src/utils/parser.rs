@@ -202,6 +202,7 @@ pub fn parse_lstime(tm: &str, fmt_year: &str, fmt_hours: &str) -> Result<SystemT
 /// ### parse_datetime
 ///
 /// Parse date time string representation and transform it into `SystemTime`
+#[allow(dead_code)]
 pub fn parse_datetime(tm: &str, fmt: &str) -> Result<SystemTime, ParseError> {
     match NaiveDateTime::parse_from_str(tm, fmt) {
         Ok(dt) => {

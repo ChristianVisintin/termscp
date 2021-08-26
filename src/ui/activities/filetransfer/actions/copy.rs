@@ -144,6 +144,8 @@ impl FileTransferActivity {
     ///
     /// Tricky copy will be used whenever copy command is not available on remote host
     fn tricky_copy(&mut self, entry: FsEntry, dest: &Path) {
+        // NOTE: VERY IMPORTANT; wait block must be umounted or something really bad will happen
+        self.umount_wait();
         // match entry
         match entry {
             FsEntry::File(entry) => {

@@ -27,7 +27,7 @@
  */
 // Locals
 use super::{FileTransfer, FileTransferError, FileTransferErrorType};
-use crate::fs::{FsDirectory, FsEntry, FsFile};
+use crate::fs::{FsDirectory, FsEntry, FsFile, UnixPex};
 use crate::system::sshkey_storage::SshKeyStorage;
 use crate::utils::fmt::{fmt_time, shadow_password};
 
@@ -126,11 +126,11 @@ impl SftpFileTransfer {
             .map(|ext| String::from(ext.to_str().unwrap_or("")));
         let uid: Option<u32> = metadata.uid;
         let gid: Option<u32> = metadata.gid;
-        let pex: Option<(u8, u8, u8)> = metadata.perm.map(|x| {
+        let pex: Option<(UnixPex, UnixPex, UnixPex)> = metadata.perm.map(|x| {
             (
-                ((x >> 6) & 0x7) as u8,
-                ((x >> 3) & 0x7) as u8,
-                (x & 0x7) as u8,
+                UnixPex::from(((x >> 6) & 0x7) as u8),
+                UnixPex::from(((x >> 3) & 0x7) as u8),
+                UnixPex::from((x & 0x7) as u8),
             )
         });
         let size: u64 = metadata.size.unwrap_or(0);
@@ -178,7 +178,6 @@ impl SftpFileTransfer {
                 last_change_time: mtime,
                 last_access_time: atime,
                 creation_time: SystemTime::UNIX_EPOCH,
-                readonly: false,
                 symlink,
                 user: uid,
                 group: gid,
@@ -192,7 +191,6 @@ impl SftpFileTransfer {
                 last_change_time: mtime,
                 last_access_time: atime,
                 creation_time: SystemTime::UNIX_EPOCH,
-                readonly: false,
                 symlink,
                 user: uid,
                 group: gid,
@@ -282,7 +280,7 @@ impl FileTransfer for SftpFileTransfer {
         // Try addresses
         for socket_addr in socket_addresses.iter() {
             debug!("Trying socket address {}", socket_addr);
-            match TcpStream::connect_timeout(&socket_addr, Duration::from_secs(30)) {
+            match TcpStream::connect_timeout(socket_addr, Duration::from_secs(30)) {
                 Ok(stream) => {
                     tcp = Some(stream);
                     break;
@@ -554,11 +552,19 @@ impl FileTransfer for SftpFileTransfer {
     /// ### mkdir
     ///
     /// Make directory
+    /// In case the directory already exists, it must return an Error of kind `FileTransferErrorType::DirectoryAlreadyExists`
     fn mkdir(&mut self, dir: &Path) -> Result<(), FileTransferError> {
         match self.sftp.as_ref() {
             Some(sftp) => {
                 // Make directory
                 let path: PathBuf = self.get_abs_path(PathBuf::from(dir).as_path());
+                // If directory already exists, return Err
+                if sftp.stat(path.as_path()).is_ok() {
+                    error!("Directory {} already exists", path.display());
+                    return Err(FileTransferError::new(
+                        FileTransferErrorType::DirectoryAlreadyExists,
+                    ));
+                }
                 info!("Making directory {}", path.display());
                 match sftp.mkdir(path.as_path(), 0o775) {
                     Ok(_) => Ok(()),
@@ -602,7 +608,7 @@ impl FileTransfer for SftpFileTransfer {
                 // Get directory files
                 let directory_content: Vec<FsEntry> = self.list_dir(d.abs_path.as_path())?;
                 for entry in directory_content.iter() {
-                    if let Err(err) = self.remove(&entry) {
+                    if let Err(err) = self.remove(entry) {
                         return Err(err);
                     }
                 }
@@ -714,7 +720,11 @@ impl FileTransfer for SftpFileTransfer {
                 // Calculate file mode
                 let mode: i32 = match local.unix_pex {
                     None => 0o644,
-                    Some((u, g, o)) => ((u as i32) << 6) + ((g as i32) << 3) + (o as i32),
+                    Some((u, g, o)) => {
+                        ((u.as_byte() as i32) << 6)
+                            + ((g.as_byte() as i32) << 3)
+                            + (o.as_byte() as i32)
+                    }
                 };
                 debug!("File mode {:?}", mode);
                 match sftp.open_mode(
@@ -839,6 +849,15 @@ mod tests {
         assert!(client.list_dir(&Path::new("/config")).unwrap().len() >= 4);
         // Make directory
         assert!(client.mkdir(PathBuf::from("/tmp/omar").as_path()).is_ok());
+        // Remake directory (should report already exists)
+        assert_eq!(
+            client
+                .mkdir(PathBuf::from("/tmp/omar").as_path())
+                .err()
+                .unwrap()
+                .kind(),
+            FileTransferErrorType::DirectoryAlreadyExists
+        );
         // Make directory (err)
         assert!(client
             .mkdir(PathBuf::from("/root/aaaaa/pommlar").as_path())
@@ -906,11 +925,10 @@ mod tests {
             creation_time: SystemTime::UNIX_EPOCH,
             size: 0,
             ftype: Some(String::from("txt")), // File type
-            readonly: true,
-            symlink: None,             // UNIX only
-            user: Some(0),             // UNIX only
-            group: Some(0),            // UNIX only
-            unix_pex: Some((6, 4, 4)), // UNIX only
+            symlink: None,                    // UNIX only
+            user: Some(0),                    // UNIX only
+            group: Some(0),                   // UNIX only
+            unix_pex: Some((UnixPex::from(6), UnixPex::from(4), UnixPex::from(4))), // UNIX only
         });
         assert!(client
             .rename(&dummy, PathBuf::from("/a/b/c").as_path())
@@ -1055,11 +1073,10 @@ mod tests {
             creation_time: SystemTime::UNIX_EPOCH,
             size: 0,
             ftype: Some(String::from("txt")), // File type
-            readonly: true,
-            symlink: None,             // UNIX only
-            user: Some(0),             // UNIX only
-            group: Some(0),            // UNIX only
-            unix_pex: Some((6, 4, 4)), // UNIX only
+            symlink: None,                    // UNIX only
+            user: Some(0),                    // UNIX only
+            group: Some(0),                   // UNIX only
+            unix_pex: Some((UnixPex::from(6), UnixPex::from(4), UnixPex::from(4))), // UNIX only
         };
         let mut sftp: SftpFileTransfer = SftpFileTransfer::new(SshKeyStorage::empty());
         assert!(sftp.change_dir(Path::new("/tmp")).is_err());

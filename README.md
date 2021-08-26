@@ -14,9 +14,9 @@
 </p>
 
 <p align="center">Developed by <a href="https://veeso.github.io/">@veeso</a></p>
-<p align="center">Current version: 0.6.0 (23/07/2021)</p>
+<p align="center">Current version: 0.6.1 (31/08/2021)</p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](https://opensource.org/licenses/MIT) [![Stars](https://img.shields.io/github/stars/veeso/termscp.svg)](https://github.com/veeso/termscp) [![Downloads](https://img.shields.io/crates/d/termscp.svg)](https://crates.io/crates/termscp) [![Crates.io](https://img.shields.io/badge/crates.io-v0.6.0-orange.svg)](https://crates.io/crates/termscp) [![Docs](https://docs.rs/termscp/badge.svg)](https://docs.rs/termscp)  
+[![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](https://opensource.org/licenses/MIT) [![Stars](https://img.shields.io/github/stars/veeso/termscp.svg)](https://github.com/veeso/termscp) [![Downloads](https://img.shields.io/crates/d/termscp.svg)](https://crates.io/crates/termscp) [![Crates.io](https://img.shields.io/badge/crates.io-v0.6.1-orange.svg)](https://crates.io/crates/termscp) [![Docs](https://docs.rs/termscp/badge.svg)](https://docs.rs/termscp)  
 
 [![Linux](https://github.com/veeso/termscp/workflows/Linux/badge.svg)](https://github.com/veeso/termscp/actions) [![MacOs](https://github.com/veeso/termscp/workflows/MacOS/badge.svg)](https://github.com/veeso/termscp/actions) [![Windows](https://github.com/veeso/termscp/workflows/Windows/badge.svg)](https://github.com/veeso/termscp/actions) [![FreeBSD](https://github.com/veeso/termscp/workflows/FreeBSD/badge.svg)](https://github.com/veeso/termscp/actions) [![Coverage Status](https://coveralls.io/repos/github/veeso/termscp/badge.svg)](https://coveralls.io/github/veeso/termscp)
 
@@ -122,13 +122,14 @@ Major termscp releases will now be seasonal, so expect 4 major updates during th
 
 Planned for *🍁 Autumn update 🍇*:
 
-- **Configuration profile for bookmarks 📚**: Basically this feature adds the possibility to have a specific setup for a certain host, instead of having only one global configuration.
 - **Self-update ⬇️**: In order to increase users updating termscp, I want to provide the possibility to  update termscp directly from application, when a new update is available.
 - **AWS S3 support 🪣**: I'll use `rust-s3` library to implement this. This is really big **Maybe** for the autumn update and might be moved to the Winter update.
+- **Prompt before replacing files ☢️**: Possibility to configure whether a prompt should be displayed before replacing files.
 
 Planned for *❄️ Winter update ⛄*:
 
 - **SMB Support 🎉**: This will require a long time to be implemented, since I'm currently working on a Rust native SMB library, since I don't want to add new C-bindings. ~~Fear the 🦚~~
+- **Configuration profile for bookmarks 📚**: Basically this feature adds the possibility to have a specific setup for a certain host, instead of having only one global configuration.
 
 Along to new features, termscp developments is now focused on UX and performance improvements, so if you have any suggestion, feel free to open an issue.
 
@@ -159,8 +160,8 @@ termscp is powered by these aweseome projects:
 - [keyring-rs](https://github.com/hwchen/keyring-rs)
 - [open-rs](https://github.com/Byron/open-rs)
 - [rpassword](https://github.com/conradkleinespel/rpassword)
-- [rust-ftp](https://github.com/mattnenterprise/rust-ftp)
 - [ssh2-rs](https://github.com/alexcrichton/ssh2-rs)
+- [suppaftp](https://github.com/veeso/suppaftp)
 - [textwrap](https://github.com/mgeisler/textwrap)
 - [tui-rs](https://github.com/fdehau/tui-rs)
 - [tui-realm](https://github.com/veeso/tui-realm)

@@ -32,7 +32,7 @@ use crate::system::environment;
 
 // Ext
 use std::path::PathBuf;
-use tuirealm::components::{input::InputPropsBuilder, radio::RadioPropsBuilder};
+use tui_realm_stdlib::{input::InputPropsBuilder, radio::RadioPropsBuilder};
 use tuirealm::{Payload, PropsBuilder, Value};
 
 impl AuthActivity {
@@ -44,7 +44,7 @@ impl AuthActivity {
             // Iterate over kyes
             let name: Option<&String> = self.bookmarks_list.get(idx);
             if let Some(name) = name {
-                bookmarks_cli.del_bookmark(&name);
+                bookmarks_cli.del_bookmark(name);
                 // Write bookmarks
                 self.write_bookmarks();
             }
@@ -60,7 +60,7 @@ impl AuthActivity {
         if let Some(bookmarks_cli) = self.bookmarks_client.as_ref() {
             // Iterate over bookmarks
             if let Some(key) = self.bookmarks_list.get(idx) {
-                if let Some(bookmark) = bookmarks_cli.get_bookmark(&key) {
+                if let Some(bookmark) = bookmarks_cli.get_bookmark(key) {
                     // Load parameters into components
                     self.load_bookmark_into_gui(
                         bookmark.0, bookmark.1, bookmark.2, bookmark.3, bookmark.4,
@@ -104,7 +104,7 @@ impl AuthActivity {
         if let Some(client) = self.bookmarks_client.as_mut() {
             let name: Option<&String> = self.recents_list.get(idx);
             if let Some(name) = name {
-                client.del_recent(&name);
+                client.del_recent(name);
                 // Write bookmarks
                 self.write_bookmarks();
             }

@@ -30,4 +30,3 @@ pub mod bookmark_list;
 pub mod color_picker;
 pub mod file_list;
 pub mod logbox;
-pub mod msgbox;

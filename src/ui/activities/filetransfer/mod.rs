@@ -228,7 +228,7 @@ impl FileTransferActivity {
     ///
     /// Returns config client reference
     fn config(&self) -> &ConfigClient {
-        &self.context().config()
+        self.context().config()
     }
 
     /// ### theme

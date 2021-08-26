@@ -52,11 +52,10 @@ pub struct FsDirectory {
     pub last_change_time: SystemTime,
     pub last_access_time: SystemTime,
     pub creation_time: SystemTime,
-    pub readonly: bool,
-    pub symlink: Option<Box<FsEntry>>,  // UNIX only
-    pub user: Option<u32>,              // UNIX only
-    pub group: Option<u32>,             // UNIX only
-    pub unix_pex: Option<(u8, u8, u8)>, // UNIX only
+    pub symlink: Option<Box<FsEntry>>,                 // UNIX only
+    pub user: Option<u32>,                             // UNIX only
+    pub group: Option<u32>,                            // UNIX only
+    pub unix_pex: Option<(UnixPex, UnixPex, UnixPex)>, // UNIX only
 }
 
 /// ### FsFile
@@ -71,12 +70,72 @@ pub struct FsFile {
     pub last_access_time: SystemTime,
     pub creation_time: SystemTime,
     pub size: usize,
-    pub ftype: Option<String>, // File type
-    pub readonly: bool,
-    pub symlink: Option<Box<FsEntry>>,  // UNIX only
-    pub user: Option<u32>,              // UNIX only
-    pub group: Option<u32>,             // UNIX only
-    pub unix_pex: Option<(u8, u8, u8)>, // UNIX only
+    pub ftype: Option<String>,                         // File type
+    pub symlink: Option<Box<FsEntry>>,                 // UNIX only
+    pub user: Option<u32>,                             // UNIX only
+    pub group: Option<u32>,                            // UNIX only
+    pub unix_pex: Option<(UnixPex, UnixPex, UnixPex)>, // UNIX only
+}
+
+/// ## UnixPex
+///
+/// Describes the permissions on POSIX system.
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct UnixPex {
+    read: bool,
+    write: bool,
+    execute: bool,
+}
+
+impl UnixPex {
+    /// ### new
+    ///
+    /// Instantiates a new `UnixPex`
+    pub fn new(read: bool, write: bool, execute: bool) -> Self {
+        Self {
+            read,
+            write,
+            execute,
+        }
+    }
+
+    /// ### can_read
+    ///
+    /// Returns whether user can read
+    pub fn can_read(&self) -> bool {
+        self.read
+    }
+
+    /// ### can_write
+    ///
+    /// Returns whether user can write
+    pub fn can_write(&self) -> bool {
+        self.write
+    }
+
+    /// ### can_execute
+    ///
+    /// Returns whether user can execute
+    pub fn can_execute(&self) -> bool {
+        self.execute
+    }
+
+    /// ### as_byte
+    ///
+    /// Convert permission to byte as on POSIX systems
+    pub fn as_byte(&self) -> u8 {
+        ((self.read as u8) << 2) + ((self.write as u8) << 1) + (self.execute as u8)
+    }
+}
+
+impl From<u8> for UnixPex {
+    fn from(bits: u8) -> Self {
+        Self {
+            read: ((bits >> 2) & 0x01) != 0,
+            write: ((bits >> 1) & 0x01) != 0,
+            execute: (bits & 0x01) != 0,
+        }
+    }
 }
 
 impl FsEntry {
@@ -173,7 +232,7 @@ impl FsEntry {
     /// ### get_unix_pex
     ///
     /// Get unix pex from `FsEntry`
-    pub fn get_unix_pex(&self) -> Option<(u8, u8, u8)> {
+    pub fn get_unix_pex(&self) -> Option<(UnixPex, UnixPex, UnixPex)> {
         match self {
             FsEntry::Directory(dir) => dir.unix_pex,
             FsEntry::File(file) => file.unix_pex,
@@ -264,11 +323,10 @@ mod tests {
             last_change_time: t_now,
             last_access_time: t_now,
             creation_time: t_now,
-            readonly: false,
-            symlink: None,             // UNIX only
-            user: Some(0),             // UNIX only
-            group: Some(0),            // UNIX only
-            unix_pex: Some((7, 5, 5)), // UNIX only
+            symlink: None,  // UNIX only
+            user: Some(0),  // UNIX only
+            group: Some(0), // UNIX only
+            unix_pex: Some((UnixPex::from(7), UnixPex::from(5), UnixPex::from(5))), // UNIX only
         });
         assert_eq!(entry.get_abs_path(), PathBuf::from("/foo"));
         assert_eq!(entry.get_name(), String::from("foo"));
@@ -282,7 +340,10 @@ mod tests {
         assert_eq!(entry.is_symlink(), false);
         assert_eq!(entry.is_dir(), true);
         assert_eq!(entry.is_file(), false);
-        assert_eq!(entry.get_unix_pex(), Some((7, 5, 5)));
+        assert_eq!(
+            entry.get_unix_pex(),
+            Some((UnixPex::from(7), UnixPex::from(5), UnixPex::from(5)))
+        );
         assert_eq!(entry.unwrap_dir().abs_path, PathBuf::from("/foo"));
     }
 
@@ -296,12 +357,11 @@ mod tests {
             last_access_time: t_now,
             creation_time: t_now,
             size: 8192,
-            readonly: false,
             ftype: Some(String::from("txt")),
-            symlink: None,             // UNIX only
-            user: Some(0),             // UNIX only
-            group: Some(0),            // UNIX only
-            unix_pex: Some((6, 4, 4)), // UNIX only
+            symlink: None,  // UNIX only
+            user: Some(0),  // UNIX only
+            group: Some(0), // UNIX only
+            unix_pex: Some((UnixPex::from(6), UnixPex::from(4), UnixPex::from(4))), // UNIX only
         });
         assert_eq!(entry.get_abs_path(), PathBuf::from("/bar.txt"));
         assert_eq!(entry.get_name(), String::from("bar.txt"));
@@ -312,7 +372,10 @@ mod tests {
         assert_eq!(entry.get_ftype(), Some(String::from("txt")));
         assert_eq!(entry.get_user(), Some(0));
         assert_eq!(entry.get_group(), Some(0));
-        assert_eq!(entry.get_unix_pex(), Some((6, 4, 4)));
+        assert_eq!(
+            entry.get_unix_pex(),
+            Some((UnixPex::from(6), UnixPex::from(4), UnixPex::from(4)))
+        );
         assert_eq!(entry.is_symlink(), false);
         assert_eq!(entry.is_dir(), false);
         assert_eq!(entry.is_file(), true);
@@ -330,12 +393,11 @@ mod tests {
             last_access_time: t_now,
             creation_time: t_now,
             size: 8192,
-            readonly: false,
             ftype: Some(String::from("txt")),
-            symlink: None,             // UNIX only
-            user: Some(0),             // UNIX only
-            group: Some(0),            // UNIX only
-            unix_pex: Some((6, 4, 4)), // UNIX only
+            symlink: None,  // UNIX only
+            user: Some(0),  // UNIX only
+            group: Some(0), // UNIX only
+            unix_pex: Some((UnixPex::from(6), UnixPex::from(4), UnixPex::from(4))), // UNIX only
         });
         entry.unwrap_dir();
     }
@@ -350,11 +412,10 @@ mod tests {
             last_change_time: t_now,
             last_access_time: t_now,
             creation_time: t_now,
-            readonly: false,
-            symlink: None,             // UNIX only
-            user: Some(0),             // UNIX only
-            group: Some(0),            // UNIX only
-            unix_pex: Some((7, 5, 5)), // UNIX only
+            symlink: None,  // UNIX only
+            user: Some(0),  // UNIX only
+            group: Some(0), // UNIX only
+            unix_pex: Some((UnixPex::from(7), UnixPex::from(5), UnixPex::from(5))), // UNIX only
         });
         entry.unwrap_file();
     }
@@ -369,12 +430,11 @@ mod tests {
             last_access_time: t_now,
             creation_time: t_now,
             size: 8192,
-            readonly: false,
             ftype: Some(String::from("txt")),
-            symlink: None,             // UNIX only
-            user: Some(0),             // UNIX only
-            group: Some(0),            // UNIX only
-            unix_pex: Some((6, 4, 4)), // UNIX only
+            symlink: None,  // UNIX only
+            user: Some(0),  // UNIX only
+            group: Some(0), // UNIX only
+            unix_pex: Some((UnixPex::from(6), UnixPex::from(4), UnixPex::from(4))), // UNIX only
         });
         assert_eq!(entry.is_hidden(), false);
         let entry: FsEntry = FsEntry::File(FsFile {
@@ -384,12 +444,11 @@ mod tests {
             last_access_time: t_now,
             creation_time: t_now,
             size: 8192,
-            readonly: false,
             ftype: Some(String::from("txt")),
-            symlink: None,             // UNIX only
-            user: Some(0),             // UNIX only
-            group: Some(0),            // UNIX only
-            unix_pex: Some((6, 4, 4)), // UNIX only
+            symlink: None,  // UNIX only
+            user: Some(0),  // UNIX only
+            group: Some(0), // UNIX only
+            unix_pex: Some((UnixPex::from(6), UnixPex::from(4), UnixPex::from(4))), // UNIX only
         });
         assert_eq!(entry.is_hidden(), true);
         let entry: FsEntry = FsEntry::Directory(FsDirectory {
@@ -398,11 +457,10 @@ mod tests {
             last_change_time: t_now,
             last_access_time: t_now,
             creation_time: t_now,
-            readonly: false,
-            symlink: None,             // UNIX only
-            user: Some(0),             // UNIX only
-            group: Some(0),            // UNIX only
-            unix_pex: Some((7, 5, 5)), // UNIX only
+            symlink: None,  // UNIX only
+            user: Some(0),  // UNIX only
+            group: Some(0), // UNIX only
+            unix_pex: Some((UnixPex::from(7), UnixPex::from(5), UnixPex::from(5))), // UNIX only
         });
         assert_eq!(entry.is_hidden(), true);
     }
@@ -418,12 +476,11 @@ mod tests {
             last_access_time: t_now,
             creation_time: t_now,
             size: 8192,
-            readonly: false,
             ftype: Some(String::from("txt")),
-            symlink: None,             // UNIX only
-            user: Some(0),             // UNIX only
-            group: Some(0),            // UNIX only
-            unix_pex: Some((6, 4, 4)), // UNIX only
+            symlink: None,  // UNIX only
+            user: Some(0),  // UNIX only
+            group: Some(0), // UNIX only
+            unix_pex: Some((UnixPex::from(6), UnixPex::from(4), UnixPex::from(4))), // UNIX only
         });
         // Symlink is None...
         assert_eq!(
@@ -437,11 +494,10 @@ mod tests {
             last_change_time: t_now,
             last_access_time: t_now,
             creation_time: t_now,
-            readonly: false,
-            symlink: None,             // UNIX only
-            user: Some(0),             // UNIX only
-            group: Some(0),            // UNIX only
-            unix_pex: Some((7, 5, 5)), // UNIX only
+            symlink: None,  // UNIX only
+            user: Some(0),  // UNIX only
+            group: Some(0), // UNIX only
+            unix_pex: Some((UnixPex::from(7), UnixPex::from(5), UnixPex::from(5))), // UNIX only
         });
         assert_eq!(entry.get_realfile().get_abs_path(), PathBuf::from("/foo"));
     }
@@ -457,11 +513,10 @@ mod tests {
             last_change_time: t_now,
             last_access_time: t_now,
             creation_time: t_now,
-            readonly: false,
-            symlink: None,             // UNIX only
-            user: Some(0),             // UNIX only
-            group: Some(0),            // UNIX only
-            unix_pex: Some((7, 7, 7)), // UNIX only
+            symlink: None,  // UNIX only
+            user: Some(0),  // UNIX only
+            group: Some(0), // UNIX only
+            unix_pex: Some((UnixPex::from(7), UnixPex::from(7), UnixPex::from(7))), // UNIX only
         });
         let entry_child: FsEntry = FsEntry::Directory(FsDirectory {
             name: String::from("projects"),
@@ -469,11 +524,10 @@ mod tests {
             last_change_time: t_now,
             last_access_time: t_now,
             creation_time: t_now,
-            readonly: false,
             symlink: Some(Box::new(entry_target)),
             user: Some(0),
             group: Some(0),
-            unix_pex: Some((7, 7, 7)),
+            unix_pex: Some((UnixPex::from(7), UnixPex::from(7), UnixPex::from(7))),
         });
         let entry_root: FsEntry = FsEntry::File(FsFile {
             name: String::from("projects"),
@@ -482,12 +536,11 @@ mod tests {
             last_access_time: t_now,
             creation_time: t_now,
             size: 8,
-            readonly: false,
             ftype: None,
             symlink: Some(Box::new(entry_child)),
             user: Some(0),
             group: Some(0),
-            unix_pex: Some((7, 7, 7)),
+            unix_pex: Some((UnixPex::from(7), UnixPex::from(7), UnixPex::from(7))),
         });
         assert_eq!(entry_root.is_symlink(), true);
         // get real file
@@ -497,5 +550,29 @@ mod tests {
             real_file.get_abs_path(),
             PathBuf::from("/home/cvisintin/projects")
         );
+    }
+
+    #[test]
+    fn unix_pex() {
+        let pex: UnixPex = UnixPex::from(4);
+        assert_eq!(pex.can_read(), true);
+        assert_eq!(pex.can_write(), false);
+        assert_eq!(pex.can_execute(), false);
+        let pex: UnixPex = UnixPex::from(0);
+        assert_eq!(pex.can_read(), false);
+        assert_eq!(pex.can_write(), false);
+        assert_eq!(pex.can_execute(), false);
+        let pex: UnixPex = UnixPex::from(3);
+        assert_eq!(pex.can_read(), false);
+        assert_eq!(pex.can_write(), true);
+        assert_eq!(pex.can_execute(), true);
+        let pex: UnixPex = UnixPex::from(7);
+        assert_eq!(pex.can_read(), true);
+        assert_eq!(pex.can_write(), true);
+        assert_eq!(pex.can_execute(), true);
+        let pex: UnixPex = UnixPex::from(3);
+        assert_eq!(pex.as_byte(), 3);
+        let pex: UnixPex = UnixPex::from(7);
+        assert_eq!(pex.as_byte(), 7);
     }
 }

@@ -26,18 +26,19 @@
  * SOFTWARE.
  */
 // ext
-use tuirealm::components::utils::get_block;
+use tui_realm_stdlib::utils::get_block;
 use tuirealm::event::{Event, KeyCode};
-use tuirealm::props::{BordersProps, Props, PropsBuilder, TextParts, TextSpan};
+use tuirealm::props::{Alignment, BlockTitle, BordersProps, Props, PropsBuilder};
 use tuirealm::tui::{
     layout::{Corner, Rect},
     style::{Color, Style},
     text::Span,
     widgets::{BorderType, Borders, List, ListItem, ListState},
 };
-use tuirealm::{Canvas, Component, Msg, Payload, Value};
+use tuirealm::{Component, Frame, Msg, Payload, PropPayload, PropValue, Value};
 
 // -- props
+const PROP_BOOKMARKS: &str = "bookmarks";
 
 pub struct BookmarkListPropsBuilder {
     props: Option<Props>,
@@ -117,10 +118,19 @@ impl BookmarkListPropsBuilder {
         self
     }
 
-    pub fn with_bookmarks(&mut self, title: Option<String>, bookmarks: Vec<String>) -> &mut Self {
+    pub fn with_title<S: AsRef<str>>(&mut self, text: S, alignment: Alignment) -> &mut Self {
         if let Some(props) = self.props.as_mut() {
-            let bookmarks: Vec<TextSpan> = bookmarks.into_iter().map(TextSpan::from).collect();
-            props.texts = TextParts::new(title, Some(bookmarks));
+            props.title = Some(BlockTitle::new(text, alignment));
+        }
+        self
+    }
+
+    pub fn with_bookmarks(&mut self, bookmarks: Vec<String>) -> &mut Self {
+        if let Some(props) = self.props.as_mut() {
+            let bookmarks: Vec<PropValue> = bookmarks.into_iter().map(PropValue::Str).collect();
+            props
+                .own
+                .insert(PROP_BOOKMARKS, PropPayload::Vec(bookmarks));
         }
         self
     }
@@ -210,25 +220,30 @@ impl BookmarkList {
         // Initialize states
         let mut states: OwnStates = OwnStates::default();
         // Set list length
-        states.set_list_len(match &props.texts.spans {
-            Some(tokens) => tokens.len(),
-            None => 0,
-        });
+        states.set_list_len(Self::bookmarks_len(&props));
         BookmarkList { props, states }
+    }
+
+    fn bookmarks_len(props: &Props) -> usize {
+        match props.own.get(PROP_BOOKMARKS) {
+            None => 0,
+            Some(bookmarks) => bookmarks.unwrap_vec().len(),
+        }
     }
 }
 
 impl Component for BookmarkList {
     #[cfg(not(tarpaulin_include))]
-    fn render(&self, render: &mut Canvas, area: Rect) {
+    fn render(&self, render: &mut Frame, area: Rect) {
         if self.props.visible {
             // Make list
-            let list_item: Vec<ListItem> = match self.props.texts.spans.as_ref() {
-                None => vec![],
-                Some(lines) => lines
+            let list_item: Vec<ListItem> = match self.props.own.get(PROP_BOOKMARKS) {
+                Some(PropPayload::Vec(lines)) => lines
                     .iter()
-                    .map(|line| ListItem::new(Span::from(line.content.to_string())))
+                    .map(|x| x.unwrap_str())
+                    .map(|x| ListItem::new(Span::from(x.to_string())))
                     .collect(),
+                _ => vec![],
             };
             let (fg, bg): (Color, Color) = match self.states.focus {
                 true => (self.props.foreground, self.props.background),
@@ -241,7 +256,7 @@ impl Component for BookmarkList {
                 List::new(list_item)
                     .block(get_block(
                         &self.props.borders,
-                        &self.props.texts.title,
+                        self.props.title.as_ref(),
                         self.states.focus,
                     ))
                     .start_corner(Corner::TopLeft)
@@ -260,10 +275,7 @@ impl Component for BookmarkList {
     fn update(&mut self, props: Props) -> Msg {
         self.props = props;
         // re-Set list length
-        self.states.set_list_len(match &self.props.texts.spans {
-            Some(tokens) => tokens.len(),
-            None => 0,
-        });
+        self.states.set_list_len(Self::bookmarks_len(&self.props));
         // Reset list index
         self.states.reset_list_index();
         Msg::None
@@ -347,20 +359,24 @@ mod tests {
                 .with_foreground(Color::Red)
                 .with_background(Color::Blue)
                 .with_borders(Borders::ALL, BorderType::Double, Color::Red)
-                .with_bookmarks(
-                    Some(String::from("filelist")),
-                    vec![String::from("file1"), String::from("file2")],
-                )
+                .with_title("filelist", Alignment::Left)
+                .with_bookmarks(vec![String::from("file1"), String::from("file2")])
                 .build(),
         );
         assert_eq!(component.props.foreground, Color::Red);
         assert_eq!(component.props.background, Color::Blue);
         assert_eq!(component.props.visible, true);
+        assert_eq!(component.props.title.as_ref().unwrap().text(), "filelist");
         assert_eq!(
-            component.props.texts.title.as_ref().unwrap().as_str(),
-            "filelist"
+            component
+                .props
+                .own
+                .get(PROP_BOOKMARKS)
+                .unwrap()
+                .unwrap_vec()
+                .len(),
+            2
         );
-        assert_eq!(component.props.texts.spans.as_ref().unwrap().len(), 2);
         // Verify states
         assert_eq!(component.states.list_index, 0);
         assert_eq!(component.states.list_len, 2);
@@ -384,14 +400,11 @@ mod tests {
         // Update
         component.update(
             BookmarkListPropsBuilder::from(component.get_props())
-                .with_bookmarks(
-                    Some(String::from("filelist")),
-                    vec![
-                        String::from("file1"),
-                        String::from("file2"),
-                        String::from("file3"),
-                    ],
-                )
+                .with_bookmarks(vec![
+                    String::from("file1"),
+                    String::from("file2"),
+                    String::from("file3"),
+                ])
                 .build(),
         );
         // Verify states

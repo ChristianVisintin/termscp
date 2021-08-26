@@ -116,7 +116,7 @@ impl ThemeProvider {
             warn!("Configuration won't be loaded, since degraded; reloading default...");
             self.theme = Theme::default();
             return Err(SerializerError::new_ex(
-                SerializerErrorKind::GenericError,
+                SerializerErrorKind::Generic,
                 String::from("Can't access theme file"),
             ));
         }
@@ -139,7 +139,7 @@ impl ThemeProvider {
             Err(err) => {
                 error!("Failed to read theme: {}", err);
                 Err(SerializerError::new_ex(
-                    SerializerErrorKind::IoError,
+                    SerializerErrorKind::Io,
                     err.to_string(),
                 ))
             }
@@ -153,7 +153,7 @@ impl ThemeProvider {
         if self.degraded {
             warn!("Configuration won't be saved, since in degraded mode");
             return Err(SerializerError::new_ex(
-                SerializerErrorKind::GenericError,
+                SerializerErrorKind::Generic,
                 String::from("Can't access theme file"),
             ));
         }
@@ -169,7 +169,7 @@ impl ThemeProvider {
             Err(err) => {
                 error!("Failed to write theme: {}", err);
                 Err(SerializerError::new_ex(
-                    SerializerErrorKind::IoError,
+                    SerializerErrorKind::Io,
                     err.to_string(),
                 ))
             }

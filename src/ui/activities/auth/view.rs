@@ -27,17 +27,15 @@
  */
 // Locals
 use super::{AuthActivity, Context, FileTransferProtocol};
-use crate::ui::components::{
-    bookmark_list::{BookmarkList, BookmarkListPropsBuilder},
-    msgbox::{MsgBox, MsgBoxPropsBuilder},
-};
+use crate::ui::components::bookmark_list::{BookmarkList, BookmarkListPropsBuilder};
 use crate::utils::ui::draw_area_in;
 // Ext
-use tuirealm::components::{
+use tui_realm_stdlib::{
     input::{Input, InputPropsBuilder},
     label::{Label, LabelPropsBuilder},
+    list::{List, ListPropsBuilder},
+    paragraph::{Paragraph, ParagraphPropsBuilder},
     radio::{Radio, RadioPropsBuilder},
-    scrolltable::{ScrollTablePropsBuilder, Scrolltable},
     span::{Span, SpanPropsBuilder},
     textarea::{Textarea, TextareaPropsBuilder},
 };
@@ -47,7 +45,7 @@ use tuirealm::tui::{
     widgets::{BorderType, Borders, Clear},
 };
 use tuirealm::{
-    props::{InputType, PropsBuilder, TableBuilder, TextSpan, TextSpanBuilder},
+    props::{Alignment, InputType, PropsBuilder, TableBuilder, TextSpan},
     Msg, Payload, Value,
 };
 
@@ -91,19 +89,11 @@ impl AuthActivity {
             Box::new(Span::new(
                 SpanPropsBuilder::default()
                     .with_spans(vec![
-                        TextSpanBuilder::new("Press ").bold().build(),
-                        TextSpanBuilder::new("<CTRL+H>")
-                            .bold()
-                            .with_foreground(key_color)
-                            .build(),
-                        TextSpanBuilder::new(" to show keybindings; ")
-                            .bold()
-                            .build(),
-                        TextSpanBuilder::new("<CTRL+C>")
-                            .bold()
-                            .with_foreground(key_color)
-                            .build(),
-                        TextSpanBuilder::new(" to enter setup").bold().build(),
+                        TextSpan::new("Press ").bold(),
+                        TextSpan::new("<CTRL+H>").bold().fg(key_color),
+                        TextSpan::new(" to show keybindings; ").bold(),
+                        TextSpan::new("<CTRL+C>").bold().fg(key_color),
+                        TextSpan::new(" to enter setup").bold(),
                     ])
                     .build(),
             )),
@@ -118,16 +108,10 @@ impl AuthActivity {
                     .with_color(protocol_color)
                     .with_inverted_color(Color::Black)
                     .with_borders(Borders::ALL, BorderType::Rounded, protocol_color)
-                    .with_options(
-                        Some(String::from("Protocol")),
-                        vec![
-                            String::from("SFTP"),
-                            String::from("SCP"),
-                            String::from("FTP"),
-                            String::from("FTPS"),
-                        ],
-                    )
+                    .with_title("Protocol", Alignment::Left)
+                    .with_options(&["SFTP", "SCP", "FTP", "FTPS"])
                     .with_value(Self::protocol_enum_to_opt(default_protocol))
+                    .rewind(true)
                     .build(),
             )),
         );
@@ -138,7 +122,7 @@ impl AuthActivity {
                 InputPropsBuilder::default()
                     .with_foreground(addr_color)
                     .with_borders(Borders::ALL, BorderType::Rounded, addr_color)
-                    .with_label(String::from("Remote host"))
+                    .with_label("Remote host", Alignment::Left)
                     .build(),
             )),
         );
@@ -149,7 +133,7 @@ impl AuthActivity {
                 InputPropsBuilder::default()
                     .with_foreground(port_color)
                     .with_borders(Borders::ALL, BorderType::Rounded, port_color)
-                    .with_label(String::from("Port number"))
+                    .with_label("Port number", Alignment::Left)
                     .with_input(InputType::Number)
                     .with_input_len(5)
                     .with_value(Self::get_default_port_for_protocol(default_protocol).to_string())
@@ -163,7 +147,7 @@ impl AuthActivity {
                 InputPropsBuilder::default()
                     .with_foreground(username_color)
                     .with_borders(Borders::ALL, BorderType::Rounded, username_color)
-                    .with_label(String::from("Username"))
+                    .with_label("Username", Alignment::Left)
                     .build(),
             )),
         );
@@ -174,7 +158,7 @@ impl AuthActivity {
                 InputPropsBuilder::default()
                     .with_foreground(password_color)
                     .with_borders(Borders::ALL, BorderType::Rounded, password_color)
-                    .with_label(String::from("Password"))
+                    .with_label("Password", Alignment::Left)
                     .with_input(InputType::Password)
                     .build(),
             )),
@@ -193,7 +177,7 @@ impl AuthActivity {
                         .with_foreground(Color::Yellow)
                         .with_spans(vec![
                             TextSpan::from("termscp "),
-                            TextSpanBuilder::new(version.as_str()).underlined().bold().build(),
+                            TextSpan::new(version.as_str()).underlined().bold(),
                             TextSpan::from(" is NOW available! Get it from <https://veeso.github.io/termscp/>; view release notes with <CTRL+R>"),
                         ])
                         .build(),
@@ -208,7 +192,7 @@ impl AuthActivity {
                     .with_background(bookmarks_color)
                     .with_foreground(Color::Black)
                     .with_borders(Borders::ALL, BorderType::Plain, bookmarks_color)
-                    .with_bookmarks(Some(String::from("Bookmarks")), vec![])
+                    .with_title("Bookmarks", Alignment::Left)
                     .build(),
             )),
         );
@@ -220,7 +204,7 @@ impl AuthActivity {
                     .with_background(recents_color)
                     .with_foreground(Color::Black)
                     .with_borders(Borders::ALL, BorderType::Plain, recents_color)
-                    .with_bookmarks(Some(String::from("Recent connections")), vec![])
+                    .with_title("Recent connections", Alignment::Left)
                     .build(),
             )),
         );
@@ -426,7 +410,7 @@ impl AuthActivity {
                 let msg = self.view.update(
                     super::COMPONENT_BOOKMARKS_LIST,
                     BookmarkListPropsBuilder::from(props)
-                        .with_bookmarks(Some(String::from("Bookmarks")), bookmarks)
+                        .with_bookmarks(bookmarks)
                         .build(),
                 );
                 msg
@@ -464,7 +448,7 @@ impl AuthActivity {
                 let msg = self.view.update(
                     super::COMPONENT_RECENTS_LIST,
                     BookmarkListPropsBuilder::from(props)
-                        .with_bookmarks(Some(String::from("Recent connections")), bookmarks)
+                        .with_bookmarks(bookmarks)
                         .build(),
                 );
                 msg
@@ -482,12 +466,13 @@ impl AuthActivity {
         let err_color = self.theme().misc_error_dialog;
         self.view.mount(
             super::COMPONENT_TEXT_ERROR,
-            Box::new(MsgBox::new(
-                MsgBoxPropsBuilder::default()
+            Box::new(Paragraph::new(
+                ParagraphPropsBuilder::default()
                     .with_foreground(err_color)
                     .with_borders(Borders::ALL, BorderType::Thick, err_color)
                     .bold()
-                    .with_texts(None, vec![TextSpan::from(text)])
+                    .with_text_alignment(Alignment::Center)
+                    .with_texts(vec![TextSpan::from(text)])
                     .build(),
             )),
         );
@@ -510,17 +495,15 @@ impl AuthActivity {
         let err_color = self.theme().misc_error_dialog;
         self.view.mount(
             super::COMPONENT_TEXT_SIZE_ERR,
-            Box::new(MsgBox::new(
-                MsgBoxPropsBuilder::default()
+            Box::new(Paragraph::new(
+                ParagraphPropsBuilder::default()
                     .with_foreground(err_color)
                     .with_borders(Borders::ALL, BorderType::Thick, err_color)
                     .bold()
-                    .with_texts(
-                        None,
-                        vec![TextSpan::from(
-                            "termscp requires at least 24 lines of height to run",
-                        )],
-                    )
+                    .with_texts(vec![TextSpan::from(
+                        "termscp requires at least 24 lines of height to run",
+                    )])
+                    .with_text_alignment(Alignment::Center)
                     .build(),
             )),
         );
@@ -548,10 +531,9 @@ impl AuthActivity {
                     .with_color(quit_color)
                     .with_borders(Borders::ALL, BorderType::Rounded, quit_color)
                     .with_inverted_color(Color::Black)
-                    .with_options(
-                        Some(String::from("Quit termscp?")),
-                        vec![String::from("Yes"), String::from("No")],
-                    )
+                    .with_title("Quit termscp?", Alignment::Center)
+                    .with_options(&[String::from("Yes"), String::from("No")])
+                    .rewind(true)
                     .build(),
             )),
         );
@@ -577,11 +559,10 @@ impl AuthActivity {
                     .with_color(warn_color)
                     .with_inverted_color(Color::Black)
                     .with_borders(Borders::ALL, BorderType::Rounded, warn_color)
-                    .with_options(
-                        Some(String::from("Delete bookmark?")),
-                        vec![String::from("Yes"), String::from("No")],
-                    )
+                    .with_title("Delete bookmark?", Alignment::Center)
+                    .with_options(&[String::from("Yes"), String::from("No")])
                     .with_value(1)
+                    .rewind(true)
                     .build(),
             )),
         );
@@ -610,11 +591,10 @@ impl AuthActivity {
                     .with_color(warn_color)
                     .with_inverted_color(Color::Black)
                     .with_borders(Borders::ALL, BorderType::Rounded, warn_color)
-                    .with_options(
-                        Some(String::from("Delete bookmark?")),
-                        vec![String::from("Yes"), String::from("No")],
-                    )
+                    .with_title("Delete bookmark?", Alignment::Center)
+                    .with_options(&[String::from("Yes"), String::from("No")])
                     .with_value(1)
+                    .rewind(true)
                     .build(),
             )),
         );
@@ -640,7 +620,7 @@ impl AuthActivity {
             Box::new(Input::new(
                 InputPropsBuilder::default()
                     .with_foreground(save_color)
-                    .with_label(String::from("Save bookmark as…"))
+                    .with_label("Save bookmark as…", Alignment::Center)
                     .with_borders(
                         Borders::TOP | Borders::RIGHT | Borders::LEFT,
                         BorderType::Rounded,
@@ -659,10 +639,9 @@ impl AuthActivity {
                         BorderType::Rounded,
                         Color::Reset,
                     )
-                    .with_options(
-                        Some(String::from("Save password?")),
-                        vec![String::from("Yes"), String::from("No")],
-                    )
+                    .with_title("Save password?", Alignment::Center)
+                    .with_options(&[String::from("Yes"), String::from("No")])
+                    .rewind(true)
                     .build(),
             )),
         );
@@ -685,77 +664,38 @@ impl AuthActivity {
         let key_color = self.theme().misc_keys;
         self.view.mount(
             super::COMPONENT_TEXT_HELP,
-            Box::new(Scrolltable::new(
-                ScrollTablePropsBuilder::default()
+            Box::new(List::new(
+                ListPropsBuilder::default()
                     .with_borders(Borders::ALL, BorderType::Rounded, Color::White)
                     .with_highlighted_str(Some("?"))
                     .with_max_scroll_step(8)
+                    .scrollable(true)
                     .bold()
-                    .with_table(
-                        Some(String::from("Help")),
+                    .with_title("Help", Alignment::Center)
+                    .with_rows(
                         TableBuilder::default()
-                            .add_col(
-                                TextSpanBuilder::new("<ESC>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<ESC>").bold().fg(key_color))
                             .add_col(TextSpan::from("           Quit termscp"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<TAB>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<TAB>").bold().fg(key_color))
                             .add_col(TextSpan::from("           Switch from form and bookmarks"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<RIGHT/LEFT>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<RIGHT/LEFT>").bold().fg(key_color))
                             .add_col(TextSpan::from("    Switch bookmark tab"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<UP/DOWN>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<UP/DOWN>").bold().fg(key_color))
                             .add_col(TextSpan::from("       Move up/down in current tab"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<ENTER>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<ENTER>").bold().fg(key_color))
                             .add_col(TextSpan::from("         Connect/Load bookmark"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<DEL|E>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<DEL|E>").bold().fg(key_color))
                             .add_col(TextSpan::from("         Delete selected bookmark"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<CTRL+C>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<CTRL+C>").bold().fg(key_color))
                             .add_col(TextSpan::from("        Enter setup"))
                             .add_row()
-                            .add_col(
-                                TextSpanBuilder::new("<CTRL+S>")
-                                    .bold()
-                                    .with_foreground(key_color)
-                                    .build(),
-                            )
+                            .add_col(TextSpan::new("<CTRL+S>").bold().fg(key_color))
                             .add_col(TextSpan::from("        Save bookmark"))
                             .build(),
                     )
@@ -786,7 +726,8 @@ impl AuthActivity {
                     Box::new(Textarea::new(
                         TextareaPropsBuilder::default()
                             .with_borders(Borders::ALL, BorderType::Rounded, Color::LightYellow)
-                            .with_texts(Some(String::from("Release notes")), spans)
+                            .with_title("Release notes", Alignment::Center)
+                            .with_texts(spans)
                             .build(),
                     )),
                 );

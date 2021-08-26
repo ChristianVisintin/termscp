@@ -26,10 +26,10 @@
  * SOFTWARE.
  */
 // ext
-use tuirealm::components::utils::get_block;
+use tui_realm_stdlib::utils::get_block;
 use tuirealm::event::{Event, KeyCode, KeyModifiers};
 use tuirealm::props::{
-    BordersProps, PropPayload, PropValue, Props, PropsBuilder, TextParts, TextSpan,
+    Alignment, BlockTitle, BordersProps, PropPayload, PropValue, Props, PropsBuilder,
 };
 use tuirealm::tui::{
     layout::{Corner, Rect},
@@ -37,11 +37,12 @@ use tuirealm::tui::{
     text::Span,
     widgets::{BorderType, Borders, List, ListItem, ListState},
 };
-use tuirealm::{Canvas, Component, Msg, Payload, Value};
+use tuirealm::{Component, Frame, Msg, Payload, Value};
 
 // -- props
 
-const PROP_HIGHLIGHT_COLOR: &str = "props-highlight-color";
+const PROP_FILES: &str = "files";
+const PALETTE_HIGHLIGHT_COLOR: &str = "props-highlight-color";
 
 pub struct FileListPropsBuilder {
     props: Option<Props>,
@@ -107,10 +108,7 @@ impl FileListPropsBuilder {
     /// Set highlighted color
     pub fn with_highlight_color(&mut self, color: Color) -> &mut Self {
         if let Some(props) = self.props.as_mut() {
-            props.own.insert(
-                PROP_HIGHLIGHT_COLOR,
-                PropPayload::One(PropValue::Color(color)),
-            );
+            props.palette.insert(PALETTE_HIGHLIGHT_COLOR, color);
         }
         self
     }
@@ -134,10 +132,17 @@ impl FileListPropsBuilder {
         self
     }
 
-    pub fn with_files(&mut self, title: Option<String>, files: Vec<String>) -> &mut Self {
+    pub fn with_title<S: AsRef<str>>(&mut self, text: S, alignment: Alignment) -> &mut Self {
         if let Some(props) = self.props.as_mut() {
-            let files: Vec<TextSpan> = files.into_iter().map(TextSpan::from).collect();
-            props.texts = TextParts::new(title, Some(files));
+            props.title = Some(BlockTitle::new(text, alignment));
+        }
+        self
+    }
+
+    pub fn with_files(&mut self, files: Vec<String>) -> &mut Self {
+        if let Some(props) = self.props.as_mut() {
+            let files: Vec<PropValue> = files.into_iter().map(PropValue::Str).collect();
+            props.own.insert(PROP_FILES, PropPayload::Vec(files));
         }
         self
     }
@@ -299,32 +304,39 @@ impl FileList {
         // Initialize states
         let mut states: OwnStates = OwnStates::default();
         // Init list states
-        states.init_list_states(props.texts.spans.as_ref().map(|x| x.len()).unwrap_or(0));
+        states.init_list_states(Self::files_len(&props));
         FileList { props, states }
+    }
+
+    fn files_len(props: &Props) -> usize {
+        match props.own.get(PROP_FILES) {
+            None => 0,
+            Some(files) => files.unwrap_vec().len(),
+        }
     }
 }
 
 impl Component for FileList {
     #[cfg(not(tarpaulin_include))]
-    fn render(&self, render: &mut Canvas, area: Rect) {
+    fn render(&self, render: &mut Frame, area: Rect) {
         if self.props.visible {
             // Make list
-            let list_item: Vec<ListItem> = match self.props.texts.spans.as_ref() {
-                None => vec![],
-                Some(lines) => lines
+            let list_item: Vec<ListItem> = match self.props.own.get(PROP_FILES) {
+                Some(PropPayload::Vec(lines)) => lines
                     .iter()
                     .enumerate()
                     .map(|(num, line)| {
                         let to_display: String = match self.states.is_selected(num) {
-                            true => format!("*{}", line.content),
-                            false => line.content.to_string(),
+                            true => format!("*{}", line.unwrap_str()),
+                            false => line.unwrap_str().to_string(),
                         };
                         ListItem::new(Span::from(to_display))
                     })
                     .collect(),
+                _ => vec![],
             };
-            let highlighted_color: Color = match self.props.own.get(PROP_HIGHLIGHT_COLOR) {
-                Some(PropPayload::One(PropValue::Color(c))) => *c,
+            let highlighted_color: Color = match self.props.palette.get(PALETTE_HIGHLIGHT_COLOR) {
+                Some(c) => *c,
                 _ => Color::Reset,
             };
             let (h_fg, h_bg): (Color, Color) = match self.states.focus {
@@ -338,7 +350,7 @@ impl Component for FileList {
                 List::new(list_item)
                     .block(get_block(
                         &self.props.borders,
-                        &self.props.texts.title,
+                        self.props.title.as_ref(),
                         self.states.focus,
                     ))
                     .start_corner(Corner::TopLeft)
@@ -362,14 +374,7 @@ impl Component for FileList {
     fn update(&mut self, props: Props) -> Msg {
         self.props = props;
         // re-Set list states
-        self.states.init_list_states(
-            self.props
-                .texts
-                .spans
-                .as_ref()
-                .map(|x| x.len())
-                .unwrap_or(0),
-        );
+        self.states.init_list_states(Self::files_len(&self.props));
         Msg::None
     }
 
@@ -551,24 +556,33 @@ mod tests {
                 .with_background(Color::Blue)
                 .with_highlight_color(Color::LightRed)
                 .with_borders(Borders::ALL, BorderType::Double, Color::Red)
-                .with_files(
-                    Some(String::from("files")),
-                    vec![String::from("file1"), String::from("file2")],
-                )
+                .with_title("files", Alignment::Left)
+                .with_files(vec![String::from("file1"), String::from("file2")])
                 .build(),
         );
         assert_eq!(
-            *component.props.own.get(PROP_HIGHLIGHT_COLOR).unwrap(),
-            PropPayload::One(PropValue::Color(Color::LightRed))
+            *component
+                .props
+                .palette
+                .get(PALETTE_HIGHLIGHT_COLOR)
+                .unwrap(),
+            Color::LightRed
         );
         assert_eq!(component.props.foreground, Color::Red);
         assert_eq!(component.props.background, Color::Blue);
         assert_eq!(component.props.visible, true);
+        assert_eq!(component.props.title.as_ref().unwrap().text(), "files");
         assert_eq!(
-            component.props.texts.title.as_ref().unwrap().as_str(),
-            "files"
+            component
+                .props
+                .own
+                .get(PROP_FILES)
+                .as_ref()
+                .unwrap()
+                .unwrap_vec()
+                .len(),
+            2
         );
-        assert_eq!(component.props.texts.spans.as_ref().unwrap().len(), 2);
         // Verify states
         assert_eq!(component.states.list_index, 0);
         assert_eq!(component.states.selected.len(), 0);
@@ -594,14 +608,11 @@ mod tests {
         // Update
         component.update(
             FileListPropsBuilder::from(component.get_props())
-                .with_files(
-                    Some(String::from("filelist")),
-                    vec![
-                        String::from("file1"),
-                        String::from("file2"),
-                        String::from("file3"),
-                    ],
-                )
+                .with_files(vec![
+                    String::from("file1"),
+                    String::from("file2"),
+                    String::from("file3"),
+                ])
                 .build(),
         );
         // Verify states
@@ -670,14 +681,11 @@ mod tests {
         // Make component
         let mut component: FileList = FileList::new(
             FileListPropsBuilder::default()
-                .with_files(
-                    Some(String::from("files")),
-                    vec![
-                        String::from("file1"),
-                        String::from("file2"),
-                        String::from("file3"),
-                    ],
-                )
+                .with_files(vec![
+                    String::from("file1"),
+                    String::from("file2"),
+                    String::from("file3"),
+                ])
                 .build(),
         );
         // Get state
@@ -735,10 +743,7 @@ mod tests {
         // Update files
         component.update(
             FileListPropsBuilder::from(component.get_props())
-                .with_files(
-                    Some(String::from("filelist")),
-                    vec![String::from("file1"), String::from("file2")],
-                )
+                .with_files(vec![String::from("file1"), String::from("file2")])
                 .build(),
         );
         // Selection should now be empty
