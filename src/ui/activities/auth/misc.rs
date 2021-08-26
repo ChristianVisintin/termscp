@@ -26,7 +26,7 @@
  * SOFTWARE.
  */
 use super::{AuthActivity, FileTransferParams, FileTransferProtocol};
-use crate::filetransfer::params::{GenericProtocolParams, ProtocolParams};
+use crate::filetransfer::params::{AwsS3Params, GenericProtocolParams, ProtocolParams};
 
 impl AuthActivity {
     /// ### protocol_opt_to_enum
@@ -37,6 +37,7 @@ impl AuthActivity {
             1 => FileTransferProtocol::Scp,
             2 => FileTransferProtocol::Ftp(false),
             3 => FileTransferProtocol::Ftp(true),
+            4 => FileTransferProtocol::AwsS3,
             _ => FileTransferProtocol::Sftp,
         }
     }
@@ -61,7 +62,7 @@ impl AuthActivity {
         match protocol {
             FileTransferProtocol::Sftp | FileTransferProtocol::Scp => 22,
             FileTransferProtocol::Ftp(_) => 21,
-            FileTransferProtocol::AwsS3 => 65535, // Doesn't matter, since not used
+            FileTransferProtocol::AwsS3 => 22, // Doesn't matter, since not used
         }
     }
 
@@ -90,7 +91,7 @@ impl AuthActivity {
     pub(super) fn collect_host_params(&self) -> Result<FileTransferParams, &'static str> {
         let protocol: FileTransferProtocol = self.get_protocol();
         match protocol {
-            FileTransferProtocol::AwsS3 => panic!("to implement"), // TODO: implement
+            FileTransferProtocol::AwsS3 => self.collect_s3_host_params(protocol),
             protocol => self.collect_generic_host_params(protocol),
         }
     }
@@ -125,6 +126,28 @@ impl AuthActivity {
                         false => Some(password),
                     }),
             ),
+            entry_directory: None,
+        })
+    }
+
+    /// ### collect_s3_host_params
+    ///
+    /// Get input values from fields or return an error if fields are invalid to work as aws s3
+    pub(super) fn collect_s3_host_params(
+        &self,
+        protocol: FileTransferProtocol,
+    ) -> Result<FileTransferParams, &'static str> {
+        let (bucket, region, profile): (String, String, Option<String>) =
+            self.get_s3_params_input();
+        if bucket.is_empty() {
+            return Err("Invalid bucket");
+        }
+        if region.is_empty() {
+            return Err("Invalid region");
+        }
+        Ok(FileTransferParams {
+            protocol,
+            params: ProtocolParams::AwsS3(AwsS3Params::new(bucket, region, profile)),
             entry_directory: None,
         })
     }

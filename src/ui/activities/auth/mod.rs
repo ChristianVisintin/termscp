@@ -57,6 +57,9 @@ const COMPONENT_INPUT_PORT: &str = "INPUT_PORT";
 const COMPONENT_INPUT_USERNAME: &str = "INPUT_USERNAME";
 const COMPONENT_INPUT_PASSWORD: &str = "INPUT_PASSWORD";
 const COMPONENT_INPUT_BOOKMARK_NAME: &str = "INPUT_BOOKMARK_NAME";
+const COMPONENT_INPUT_S3_BUCKET: &str = "INPUT_S3_BUCKET";
+const COMPONENT_INPUT_S3_REGION: &str = "INPUT_S3_REGION";
+const COMPONENT_INPUT_S3_PROFILE: &str = "INPUT_S3_PROFILE";
 const COMPONENT_RADIO_PROTOCOL: &str = "RADIO_PROTOCOL";
 const COMPONENT_RADIO_QUIT: &str = "RADIO_QUIT";
 const COMPONENT_RADIO_BOOKMARK_DEL_BOOKMARK: &str = "RADIO_DELETE_BOOKMARK";
@@ -163,6 +166,16 @@ impl AuthActivity {
     fn theme(&self) -> &Theme {
         self.context().theme_provider().theme()
     }
+
+    /// ### input_mask
+    ///
+    /// Get current input mask to show
+    fn input_mask(&self) -> InputMask {
+        match self.get_protocol() {
+            FileTransferProtocol::AwsS3 => InputMask::AwsS3,
+            _ => InputMask::Generic,
+        }
+    }
 }
 
 impl Activity for AuthActivity {
@@ -260,4 +273,13 @@ impl Activity for AuthActivity {
             None => None,
         }
     }
+}
+
+/// ## InputMask
+///
+/// Auth form input mask
+#[derive(Eq, PartialEq)]
+enum InputMask {
+    Generic,
+    AwsS3,
 }

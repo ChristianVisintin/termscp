@@ -127,7 +127,7 @@ pub fn parse_remote_opt(remote: &str) -> Result<FileTransferParams, String> {
                         FileTransferProtocol::Ftp(_) => (proto, 21),
                         FileTransferProtocol::Scp => (proto, 22),
                         FileTransferProtocol::Sftp => (proto, 22),
-                        FileTransferProtocol::AwsS3 => (proto, 65535), // Doesn't matter
+                        FileTransferProtocol::AwsS3 => (proto, 22), // Doesn't matter
                     },
                     Err(_) => return Err(format!("Unknown protocol \"{}\"", group.as_str())),
                 };

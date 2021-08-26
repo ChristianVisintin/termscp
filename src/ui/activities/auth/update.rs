@@ -27,8 +27,9 @@
  */
 // locals
 use super::{
-    AuthActivity, FileTransferProtocol, COMPONENT_BOOKMARKS_LIST, COMPONENT_INPUT_ADDR,
+    AuthActivity, FileTransferProtocol, InputMask, COMPONENT_BOOKMARKS_LIST, COMPONENT_INPUT_ADDR,
     COMPONENT_INPUT_BOOKMARK_NAME, COMPONENT_INPUT_PASSWORD, COMPONENT_INPUT_PORT,
+    COMPONENT_INPUT_S3_BUCKET, COMPONENT_INPUT_S3_PROFILE, COMPONENT_INPUT_S3_REGION,
     COMPONENT_INPUT_USERNAME, COMPONENT_RADIO_BOOKMARK_DEL_BOOKMARK,
     COMPONENT_RADIO_BOOKMARK_DEL_RECENT, COMPONENT_RADIO_BOOKMARK_SAVE_PWD,
     COMPONENT_RADIO_PROTOCOL, COMPONENT_RADIO_QUIT, COMPONENT_RECENTS_LIST, COMPONENT_TEXT_ERROR,
@@ -53,54 +54,80 @@ impl Update for AuthActivity {
             Some(msg) => match msg {
                 // Focus ( DOWN )
                 (COMPONENT_RADIO_PROTOCOL, key) if key == &MSG_KEY_DOWN => {
-                    // Give focus to port
-                    self.view.active(COMPONENT_INPUT_ADDR);
+                    // Give focus based on current mask
+                    match self.input_mask() {
+                        InputMask::Generic => self.view.active(COMPONENT_INPUT_ADDR),
+                        InputMask::AwsS3 => self.view.active(COMPONENT_INPUT_S3_BUCKET),
+                    };
                     None
                 }
+                // -- generic mask (DOWN)
                 (COMPONENT_INPUT_ADDR, key) if key == &MSG_KEY_DOWN => {
-                    // Give focus to port
                     self.view.active(COMPONENT_INPUT_PORT);
                     None
                 }
                 (COMPONENT_INPUT_PORT, key) if key == &MSG_KEY_DOWN => {
-                    // Give focus to port
                     self.view.active(COMPONENT_INPUT_USERNAME);
                     None
                 }
                 (COMPONENT_INPUT_USERNAME, key) if key == &MSG_KEY_DOWN => {
-                    // Give focus to port
                     self.view.active(COMPONENT_INPUT_PASSWORD);
                     None
                 }
                 (COMPONENT_INPUT_PASSWORD, key) if key == &MSG_KEY_DOWN => {
-                    // Give focus to port
+                    self.view.active(COMPONENT_RADIO_PROTOCOL);
+                    None
+                }
+                // -- s3 mask (DOWN)
+                (COMPONENT_INPUT_S3_BUCKET, key) if key == &MSG_KEY_DOWN => {
+                    self.view.active(COMPONENT_INPUT_S3_REGION);
+                    None
+                }
+                (COMPONENT_INPUT_S3_REGION, key) if key == &MSG_KEY_DOWN => {
+                    self.view.active(COMPONENT_INPUT_S3_PROFILE);
+                    None
+                }
+                (COMPONENT_INPUT_S3_PROFILE, key) if key == &MSG_KEY_DOWN => {
                     self.view.active(COMPONENT_RADIO_PROTOCOL);
                     None
                 }
                 // Focus ( UP )
+                // -- generic (UP)
                 (COMPONENT_INPUT_PASSWORD, key) if key == &MSG_KEY_UP => {
-                    // Give focus to port
                     self.view.active(COMPONENT_INPUT_USERNAME);
                     None
                 }
                 (COMPONENT_INPUT_USERNAME, key) if key == &MSG_KEY_UP => {
-                    // Give focus to port
                     self.view.active(COMPONENT_INPUT_PORT);
                     None
                 }
                 (COMPONENT_INPUT_PORT, key) if key == &MSG_KEY_UP => {
-                    // Give focus to port
                     self.view.active(COMPONENT_INPUT_ADDR);
                     None
                 }
                 (COMPONENT_INPUT_ADDR, key) if key == &MSG_KEY_UP => {
-                    // Give focus to port
                     self.view.active(COMPONENT_RADIO_PROTOCOL);
                     None
                 }
+                // -- s3 (UP)
+                (COMPONENT_INPUT_S3_BUCKET, key) if key == &MSG_KEY_UP => {
+                    self.view.active(COMPONENT_RADIO_PROTOCOL);
+                    None
+                }
+                (COMPONENT_INPUT_S3_REGION, key) if key == &MSG_KEY_UP => {
+                    self.view.active(COMPONENT_INPUT_S3_BUCKET);
+                    None
+                }
+                (COMPONENT_INPUT_S3_PROFILE, key) if key == &MSG_KEY_UP => {
+                    self.view.active(COMPONENT_INPUT_S3_REGION);
+                    None
+                }
                 (COMPONENT_RADIO_PROTOCOL, key) if key == &MSG_KEY_UP => {
-                    // Give focus to port
-                    self.view.active(COMPONENT_INPUT_PASSWORD);
+                    // Give focus based on current mask
+                    match self.input_mask() {
+                        InputMask::Generic => self.view.active(COMPONENT_INPUT_PASSWORD),
+                        InputMask::AwsS3 => self.view.active(COMPONENT_INPUT_S3_PROFILE),
+                    };
                     None
                 }
                 // Protocol - On Change
