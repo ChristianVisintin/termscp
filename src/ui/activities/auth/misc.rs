@@ -49,6 +49,7 @@ impl AuthActivity {
             FileTransferProtocol::Scp => 1,
             FileTransferProtocol::Ftp(false) => 2,
             FileTransferProtocol::Ftp(true) => 3,
+            FileTransferProtocol::AwsS3 => 4,
         }
     }
 
@@ -59,6 +60,7 @@ impl AuthActivity {
         match protocol {
             FileTransferProtocol::Sftp | FileTransferProtocol::Scp => 22,
             FileTransferProtocol::Ftp(_) => 21,
+            FileTransferProtocol::AwsS3 => 65535, // Doesn't matter, since not used
         }
     }
 

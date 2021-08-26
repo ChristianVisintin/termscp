@@ -1,4 +1,4 @@
-//! ## SFTP_Transfer
+//! ## SFTP transfer
 //!
 //! `sftp_transfer` is the module which provides the implementation for the SFTP file transfer
 

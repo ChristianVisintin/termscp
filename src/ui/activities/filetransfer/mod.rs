@@ -155,6 +155,7 @@ impl FileTransferActivity {
                 FileTransferProtocol::Scp => {
                     Box::new(ScpFileTransfer::new(Self::make_ssh_storage(&config_client)))
                 }
+                FileTransferProtocol::AwsS3 => Box::new(FtpFileTransfer::new(false)), // FIXME: use s3
             },
             browser: Browser::new(&config_client),
             log_records: VecDeque::with_capacity(256), // 256 events is enough I guess

@@ -35,6 +35,7 @@ use wildmatch::WildMatch;
 // exports
 pub mod ftp_transfer;
 pub mod params;
+pub mod s3_transfer;
 pub mod scp_transfer;
 pub mod sftp_transfer;
 
@@ -49,6 +50,7 @@ pub enum FileTransferProtocol {
     Sftp,
     Scp,
     Ftp(bool), // Bool is for secure (true => ftps)
+    AwsS3,
 }
 
 /// ## FileTransferError
@@ -314,6 +316,7 @@ impl std::string::ToString for FileTransferProtocol {
             },
             FileTransferProtocol::Scp => "SCP",
             FileTransferProtocol::Sftp => "SFTP",
+            FileTransferProtocol::AwsS3 => "AWS-S3",
         })
     }
 }
@@ -326,6 +329,7 @@ impl std::str::FromStr for FileTransferProtocol {
             "FTPS" => Ok(FileTransferProtocol::Ftp(true)),
             "SCP" => Ok(FileTransferProtocol::Scp),
             "SFTP" => Ok(FileTransferProtocol::Sftp),
+            "AWS-S3" => Ok(FileTransferProtocol::AwsS3),
             _ => Err(s.to_string()),
         }
     }

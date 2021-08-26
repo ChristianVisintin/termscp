@@ -52,6 +52,7 @@ extern crate open;
 extern crate path_slash;
 extern crate rand;
 extern crate regex;
+extern crate s3;
 extern crate ssh2;
 extern crate suppaftp;
 extern crate tempfile;

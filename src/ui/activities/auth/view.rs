@@ -109,7 +109,7 @@ impl AuthActivity {
                     .with_inverted_color(Color::Black)
                     .with_borders(Borders::ALL, BorderType::Rounded, protocol_color)
                     .with_title("Protocol", Alignment::Left)
-                    .with_options(&["SFTP", "SCP", "FTP", "FTPS"])
+                    .with_options(&["SFTP", "SCP", "FTP", "FTPS", "AWS S3"])
                     .with_value(Self::protocol_enum_to_opt(default_protocol))
                     .rewind(true)
                     .build(),

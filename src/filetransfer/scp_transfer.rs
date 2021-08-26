@@ -1,4 +1,4 @@
-//! ## SCP_Transfer
+//! ## SCP transfer
 //!
 //! `scps_transfer` is the module which provides the implementation for the SCP file transfer
 

@@ -1,4 +1,4 @@
-//! ## Ftp_transfer
+//! ## FTP transfer
 //!
 //! `ftp_transfer` is the module which provides the implementation for the FTP/FTPS file transfer
 

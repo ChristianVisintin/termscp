@@ -81,12 +81,7 @@ impl SetupActivity {
                     .with_inverted_color(Color::Black)
                     .with_borders(Borders::ALL, BorderType::Rounded, Color::LightCyan)
                     .with_title("Default file transfer protocol", Alignment::Left)
-                    .with_options(&[
-                        String::from("SFTP"),
-                        String::from("SCP"),
-                        String::from("FTP"),
-                        String::from("FTPS"),
-                    ])
+                    .with_options(&["SFTP", "SCP", "FTP", "FTPS", "AWS S3"])
                     .rewind(true)
                     .build(),
             )),
@@ -265,6 +260,7 @@ impl SetupActivity {
                 FileTransferProtocol::Scp => 1,
                 FileTransferProtocol::Ftp(false) => 2,
                 FileTransferProtocol::Ftp(true) => 3,
+                FileTransferProtocol::AwsS3 => 4,
             };
             let props = RadioPropsBuilder::from(props).with_value(protocol).build();
             let _ = self
