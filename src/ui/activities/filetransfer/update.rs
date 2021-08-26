@@ -810,14 +810,14 @@ impl FileTransferActivity {
                     .store()
                     .get_unsigned(super::STORAGE_EXPLORER_WIDTH)
                     .unwrap_or(256);
-                let params = self.context().ft_params().unwrap();
+                let hostname = self.get_remote_hostname();
                 let hostname: String = format!(
                     "{}:{} ",
-                    params.address,
+                    hostname,
                     fmt_path_elide_ex(
                         self.remote().wrkdir.as_path(),
                         width,
-                        params.address.len() + 3 // 3 because of '/…/'
+                        hostname.len() + 3 // 3 because of '/…/'
                     )
                 );
                 let files: Vec<String> = self

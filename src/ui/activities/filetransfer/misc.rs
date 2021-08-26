@@ -23,6 +23,7 @@
  */
 // Locals
 use super::{ConfigClient, FileTransferActivity, LogLevel, LogRecord};
+use crate::filetransfer::ProtocolParams;
 use crate::system::environment;
 use crate::system::sshkey_storage::SshKeyStorage;
 use crate::utils::path;
@@ -133,5 +134,16 @@ impl FileTransferActivity {
     /// Convert a path to absolute according to remote explorer
     pub(super) fn remote_to_abs_path(&self, path: &Path) -> PathBuf {
         path::absolutize(self.remote().wrkdir.as_path(), path)
+    }
+
+    /// ### get_remote_hostname
+    ///
+    /// Get remote hostname
+    pub(super) fn get_remote_hostname(&self) -> String {
+        let ft_params = self.context().ft_params().unwrap();
+        match &ft_params.params {
+            ProtocolParams::Generic(params) => params.address.clone(),
+            ProtocolParams::AwsS3(params) => params.bucket_name.clone(),
+        }
     }
 }

@@ -39,7 +39,7 @@ use crate::config::themes::Theme;
 use crate::filetransfer::ftp_transfer::FtpFileTransfer;
 use crate::filetransfer::scp_transfer::ScpFileTransfer;
 use crate::filetransfer::sftp_transfer::SftpFileTransfer;
-use crate::filetransfer::{FileTransfer, FileTransferProtocol};
+use crate::filetransfer::{FileTransfer, FileTransferProtocol, ProtocolParams};
 use crate::fs::explorer::FileExplorer;
 use crate::fs::FsEntry;
 use crate::host::Localhost;
@@ -238,6 +238,28 @@ impl FileTransferActivity {
     fn theme(&self) -> &Theme {
         self.context().theme_provider().theme()
     }
+
+    /// ### get_connection_msg
+    ///
+    /// Get connection message to show to client
+    fn get_connection_msg(params: &ProtocolParams) -> String {
+        match params {
+            ProtocolParams::Generic(params) => {
+                info!(
+                    "Client is not connected to remote; connecting to {}:{}",
+                    params.address, params.port
+                );
+                format!("Connecting to {}:{}…", params.address, params.port)
+            }
+            ProtocolParams::AwsS3(params) => {
+                info!(
+                    "Client is not connected to remote; connecting to {} ({})",
+                    params.bucket_name, params.region
+                );
+                format!("Connecting to {}…", params.bucket_name)
+            }
+        }
+    }
 }
 
 /**
@@ -291,12 +313,9 @@ impl Activity for FileTransferActivity {
         }
         // Check if connected (popup must be None, otherwise would try reconnecting in loop in case of error)
         if !self.client.is_connected() && self.view.get_props(COMPONENT_TEXT_FATAL).is_none() {
-            let params = self.context().ft_params().unwrap();
-            info!(
-                "Client is not connected to remote; connecting to {}:{}",
-                params.address, params.port
-            );
-            let msg: String = format!("Connecting to {}:{}…", params.address, params.port);
+            let ftparams = self.context().ft_params().unwrap();
+            // print params
+            let msg: String = Self::get_connection_msg(&ftparams.params);
             // Set init state to connecting popup
             self.mount_wait(msg.as_str());
             // Force ui draw

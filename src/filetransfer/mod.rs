@@ -39,7 +39,7 @@ pub mod s3_transfer;
 pub mod scp_transfer;
 pub mod sftp_transfer;
 
-pub use params::FileTransferParams;
+pub use params::{FileTransferParams, ProtocolParams};
 
 /// ## FileTransferProtocol
 ///
@@ -138,19 +138,11 @@ pub trait FileTransfer {
     ///
     /// Connect to the remote server
     /// Can return banner / welcome message on success
-
-    fn connect(
-        &mut self,
-        address: String,
-        port: u16,
-        username: Option<String>,
-        password: Option<String>,
-    ) -> Result<Option<String>, FileTransferError>;
+    fn connect(&mut self, params: &ProtocolParams) -> Result<Option<String>, FileTransferError>;
 
     /// ### disconnect
     ///
     /// Disconnect from the remote server
-
     fn disconnect(&mut self) -> Result<(), FileTransferError>;
 
     /// ### is_connected

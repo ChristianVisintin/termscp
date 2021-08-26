@@ -26,7 +26,7 @@
  * SOFTWARE.
  */
 // Locals
-use super::{FileTransfer, FileTransferError, FileTransferErrorType};
+use super::{FileTransfer, FileTransferError, FileTransferErrorType, ProtocolParams};
 use crate::fs::{FsDirectory, FsEntry, FsFile, UnixPex};
 use crate::system::sshkey_storage::SshKeyStorage;
 use crate::utils::fmt::{fmt_time, shadow_password};
@@ -333,17 +333,15 @@ impl FileTransfer for ScpFileTransfer {
     /// ### connect
     ///
     /// Connect to the remote server
-    fn connect(
-        &mut self,
-        address: String,
-        port: u16,
-        username: Option<String>,
-        password: Option<String>,
-    ) -> Result<Option<String>, FileTransferError> {
+    fn connect(&mut self, params: &ProtocolParams) -> Result<Option<String>, FileTransferError> {
+        let params = match params.generic_params() {
+            Some(params) => params,
+            None => return Err(FileTransferError::new(FileTransferErrorType::BadAddress)),
+        };
         // Setup tcp stream
-        info!("Connecting to {}:{}", address, port);
+        info!("Connecting to {}:{}", params.address, params.port);
         let socket_addresses: Vec<SocketAddr> =
-            match format!("{}:{}", address, port).to_socket_addrs() {
+            match format!("{}:{}", params.address, params.port).to_socket_addrs() {
                 Ok(s) => s.collect(),
                 Err(err) => {
                     return Err(FileTransferError::new_ex(
@@ -398,14 +396,14 @@ impl FileTransfer for ScpFileTransfer {
                 err.to_string(),
             ));
         }
-        let username: String = match username {
-            Some(u) => u,
+        let username: String = match &params.username {
+            Some(u) => u.to_string(),
             None => String::from(""),
         };
         // Check if it is possible to authenticate using a RSA key
         match self
             .key_storage
-            .resolve(address.as_str(), username.as_str())
+            .resolve(params.address.as_str(), username.as_str())
         {
             Some(rsa_key) => {
                 debug!(
@@ -418,7 +416,7 @@ impl FileTransfer for ScpFileTransfer {
                     username.as_str(),
                     None,
                     rsa_key.as_path(),
-                    password.as_deref(),
+                    params.password.as_deref(),
                 ) {
                     error!("Authentication failed: {}", err);
                     return Err(FileTransferError::new_ex(
@@ -432,11 +430,16 @@ impl FileTransfer for ScpFileTransfer {
                 debug!(
                     "Authenticating with username {} and password {}",
                     username,
-                    shadow_password(password.as_deref().unwrap_or(""))
+                    shadow_password(params.password.as_deref().unwrap_or(""))
                 );
                 if let Err(err) = session.userauth_password(
                     username.as_str(),
-                    password.unwrap_or_else(|| String::from("")).as_str(),
+                    params
+                        .password
+                        .as_ref()
+                        .cloned()
+                        .unwrap_or_else(|| String::from(""))
+                        .as_str(),
                 ) {
                     error!("Authentication failed: {}", err);
                     return Err(FileTransferError::new_ex(
@@ -972,6 +975,7 @@ impl FileTransfer for ScpFileTransfer {
 mod tests {
 
     use super::*;
+    use crate::filetransfer::params::GenericProtocolParams;
     use crate::utils::test_helpers::make_fsentry;
     use pretty_assertions::assert_eq;
 
@@ -993,12 +997,13 @@ mod tests {
         let (entry, file): (FsFile, tempfile::NamedTempFile) = create_sample_file_entry();
         // Connect
         assert!(client
-            .connect(
-                String::from("127.0.0.1"),
-                10222,
-                Some(String::from("sftp")),
-                Some(String::from("password"))
-            )
+            .connect(&ProtocolParams::Generic(
+                GenericProtocolParams::default()
+                    .address("127.0.0.1")
+                    .port(10222)
+                    .username(Some("sftp"))
+                    .password(Some("password"))
+            ))
             .is_ok());
         // Check session and sftp
         assert!(client.session.is_some());
@@ -1180,12 +1185,13 @@ mod tests {
         let mut client: ScpFileTransfer = ScpFileTransfer::new(storage);
         // Connect
         assert!(client
-            .connect(
-                String::from("127.0.0.1"),
-                10222,
-                Some(String::from("sftp")),
-                None,
-            )
+            .connect(&ProtocolParams::Generic(
+                GenericProtocolParams::default()
+                    .address("127.0.0.1")
+                    .port(10222)
+                    .username(Some("sftp"))
+                    .password::<&str>(None)
+            ))
             .is_ok());
         assert_eq!(client.is_connected(), true);
         assert!(client.disconnect().is_ok());
@@ -1195,12 +1201,13 @@ mod tests {
     fn test_filetransfer_scp_bad_auth() {
         let mut client: ScpFileTransfer = ScpFileTransfer::new(SshKeyStorage::empty());
         assert!(client
-            .connect(
-                String::from("127.0.0.1"),
-                10222,
-                Some(String::from("demo")),
-                Some(String::from("badpassword"))
-            )
+            .connect(&ProtocolParams::Generic(
+                GenericProtocolParams::default()
+                    .address("127.0.0.1")
+                    .port(10222)
+                    .username(Some("sftp"))
+                    .password(Some("badpassword"))
+            ))
             .is_err());
     }
 
@@ -1209,7 +1216,13 @@ mod tests {
     fn test_filetransfer_scp_no_credentials() {
         let mut client: ScpFileTransfer = ScpFileTransfer::new(SshKeyStorage::empty());
         assert!(client
-            .connect(String::from("127.0.0.1"), 10222, None, None)
+            .connect(&ProtocolParams::Generic(
+                GenericProtocolParams::default()
+                    .address("127.0.0.1")
+                    .port(10222)
+                    .username::<&str>(None)
+                    .password::<&str>(None)
+            ))
             .is_err());
     }
 
@@ -1217,12 +1230,13 @@ mod tests {
     fn test_filetransfer_scp_bad_server() {
         let mut client: ScpFileTransfer = ScpFileTransfer::new(SshKeyStorage::empty());
         assert!(client
-            .connect(
-                String::from("mybadserver.veryverybad.awful"),
-                22,
-                None,
-                None
-            )
+            .connect(&ProtocolParams::Generic(
+                GenericProtocolParams::default()
+                    .address("mybad.verybad.server")
+                    .port(10222)
+                    .username(Some("sftp"))
+                    .password(Some("password"))
+            ))
             .is_err());
     }
 

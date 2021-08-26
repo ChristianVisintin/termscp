@@ -74,7 +74,9 @@ impl AuthActivity {
     ///
     /// Save current input fields as a bookmark
     pub(super) fn save_bookmark(&mut self, name: String, save_password: bool) {
-        let (address, port, protocol, username, password) = self.get_input();
+        let protocol = self.get_protocol();
+        let (address, port, username, password) = self.get_generic_params_input();
+        // TODO: pass file transfer params
         if let Some(bookmarks_cli) = self.bookmarks_client.as_mut() {
             // Check if password must be saved
             let password: Option<String> = match save_password {
@@ -134,7 +136,9 @@ impl AuthActivity {
     ///
     /// Save current input fields as a "recent"
     pub(super) fn save_recent(&mut self) {
-        let (address, port, protocol, username, _password) = self.get_input();
+        let protocol = self.get_protocol();
+        let (address, port, username, _) = self.get_generic_params_input();
+        // TODO: pass file transfer params
         if let Some(bookmarks_cli) = self.bookmarks_client.as_mut() {
             bookmarks_cli.add_recent(address, port, protocol, username);
             // Save bookmarks

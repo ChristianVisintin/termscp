@@ -76,22 +76,20 @@ impl FileTransferActivity {
     ///
     /// Connect to remote
     pub(super) fn connect(&mut self) {
-        let params = self.context().ft_params().unwrap().clone();
-        let addr: String = params.address.clone();
-        let entry_dir: Option<PathBuf> = params.entry_directory.clone();
+        let ft_params = self.context().ft_params().unwrap().clone();
+        let entry_dir: Option<PathBuf> = ft_params.entry_directory.clone();
         // Connect to remote
-        match self.client.connect(
-            params.address,
-            params.port,
-            params.username,
-            params.password,
-        ) {
+        match self.client.connect(&ft_params.params) {
             Ok(welcome) => {
                 if let Some(banner) = welcome {
                     // Log welcome
                     self.log(
                         LogLevel::Info,
-                        format!("Established connection with '{}': \"{}\"", addr, banner),
+                        format!(
+                            "Established connection with '{}': \"{}\"",
+                            self.get_remote_hostname(),
+                            banner
+                        ),
                     );
                 }
                 // Try to change directory to entry directory
@@ -121,8 +119,7 @@ impl FileTransferActivity {
     ///
     /// disconnect from remote
     pub(super) fn disconnect(&mut self) {
-        let params = self.context().ft_params().unwrap();
-        let msg: String = format!("Disconnecting from {}…", params.address);
+        let msg: String = format!("Disconnecting from {}…", self.get_remote_hostname());
         // Show popup disconnecting
         self.mount_wait(msg.as_str());
         // Disconnect

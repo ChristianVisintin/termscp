@@ -180,7 +180,9 @@ fn parse_args(args: Args) -> Result<RunOpts, String> {
             Ok(mut remote) => {
                 // If password is provided, set password
                 if let Some(passwd) = args.password {
-                    remote = remote.password(Some(passwd));
+                    if let Some(mut params) = remote.params.mut_generic_params() {
+                        params.password = Some(passwd);
+                    }
                 }
                 // Set params
                 run_opts.remote = Some(remote);
@@ -209,25 +211,26 @@ fn parse_args(args: Args) -> Result<RunOpts, String> {
 fn read_password(run_opts: &mut RunOpts) -> Result<(), String> {
     // Initialize client if necessary
     if let Some(remote) = run_opts.remote.as_mut() {
-        debug!("User has specified remote options: address: {:?}, port: {:?}, protocol: {:?}, user: {:?}, password: {}", remote.address, remote.port, remote.protocol, remote.username, utils::fmt::shadow_password(remote.password.as_deref().unwrap_or("")));
-        if remote.password.is_none() {
-            // Ask password if unspecified
-            remote.password = match rpassword::read_password_from_tty(Some("Password: ")) {
-                Ok(p) => {
-                    if p.is_empty() {
-                        None
-                    } else {
-                        debug!(
-                            "Read password from tty: {}",
-                            utils::fmt::shadow_password(p.as_str())
-                        );
-                        Some(p)
+        if let Some(mut params) = remote.params.mut_generic_params() {
+            if params.password.is_none() {
+                // Ask password if unspecified
+                params.password = match rpassword::read_password_from_tty(Some("Password: ")) {
+                    Ok(p) => {
+                        if p.is_empty() {
+                            None
+                        } else {
+                            debug!(
+                                "Read password from tty: {}",
+                                utils::fmt::shadow_password(p.as_str())
+                            );
+                            Some(p)
+                        }
                     }
-                }
-                Err(_) => {
-                    return Err("Could not read password from prompt".to_string());
-                }
-            };
+                    Err(_) => {
+                        return Err("Could not read password from prompt".to_string());
+                    }
+                };
+            }
         }
     }
     Ok(())

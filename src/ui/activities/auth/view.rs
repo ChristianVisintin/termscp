@@ -743,16 +743,22 @@ impl AuthActivity {
         self.view.umount(super::COMPONENT_TEXT_NEW_VERSION_NOTES);
     }
 
-    /// ### get_input
+    /// ### get_protocol
+    ///
+    /// Get protocol from view
+    pub(super) fn get_protocol(&self) -> FileTransferProtocol {
+        self.get_input_protocol()
+    }
+
+    /// ### get_generic_params
     ///
     /// Collect input values from view
-    pub(super) fn get_input(&self) -> (String, u16, FileTransferProtocol, String, String) {
+    pub(super) fn get_generic_params_input(&self) -> (String, u16, String, String) {
         let addr: String = self.get_input_addr();
         let port: u16 = self.get_input_port();
-        let protocol: FileTransferProtocol = self.get_input_protocol();
         let username: String = self.get_input_username();
         let password: String = self.get_input_password();
-        (addr, port, protocol, username, password)
+        (addr, port, username, password)
     }
 
     pub(super) fn get_input_addr(&self) -> String {
