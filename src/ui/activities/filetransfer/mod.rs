@@ -36,10 +36,8 @@ pub(self) mod view;
 // locals
 use super::{Activity, Context, ExitReason};
 use crate::config::themes::Theme;
-use crate::filetransfer::ftp_transfer::FtpFileTransfer;
-use crate::filetransfer::scp_transfer::ScpFileTransfer;
-use crate::filetransfer::sftp_transfer::SftpFileTransfer;
 use crate::filetransfer::{FileTransfer, FileTransferProtocol, ProtocolParams};
+use crate::filetransfer::{FtpFileTransfer, S3FileTransfer, ScpFileTransfer, SftpFileTransfer};
 use crate::fs::explorer::FileExplorer;
 use crate::fs::FsEntry;
 use crate::host::Localhost;

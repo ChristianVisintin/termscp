@@ -81,14 +81,6 @@ impl FileTransferParams {
         }
     }
 
-    /// ### protocol
-    ///
-    /// Set protocol for params
-    pub fn protocol(mut self, protocol: FileTransferProtocol) -> Self {
-        self.protocol = protocol;
-        self
-    }
-
     /// ### entry_directory
     ///
     /// Set entry directory
@@ -211,7 +203,6 @@ mod test {
     fn test_filetransfer_params() {
         let params: FileTransferParams =
             FileTransferParams::new(FileTransferProtocol::Sftp, ProtocolParams::default())
-                .protocol(FileTransferProtocol::Scp)
                 .entry_directory(Some(&Path::new("/tmp")));
         assert_eq!(
             params.params.generic_params().unwrap().address.as_str(),

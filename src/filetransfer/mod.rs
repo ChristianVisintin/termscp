@@ -33,13 +33,12 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 use wildmatch::WildMatch;
 // exports
-pub mod ftp_transfer;
 pub mod params;
-pub mod s3_transfer;
-pub mod scp_transfer;
-pub mod sftp_transfer;
+mod transfer;
 
+// -- export types
 pub use params::{FileTransferParams, ProtocolParams};
+pub use transfer::{FtpFileTransfer, S3FileTransfer, ScpFileTransfer, SftpFileTransfer};
 
 /// ## FileTransferProtocol
 ///
